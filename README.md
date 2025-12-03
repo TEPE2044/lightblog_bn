@@ -2,8 +2,8 @@
 
 ## 启动项目
 ```bash
-uvicorn main:app --reload
-``` 
+uvicorn src.main:app --reload
+```
 
 ## 更新requirements.txt
 ```bash
