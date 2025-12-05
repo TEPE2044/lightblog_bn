@@ -9,7 +9,7 @@ try:
     connection = asyncpg.connect(
         database="reksblog",
         user="pgadmin",
-        password=settings.db_password,
+        password=settings.pgdb_password,
         host="113.46.155.82",
         port="5432"
     )

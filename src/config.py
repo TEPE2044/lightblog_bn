@@ -8,8 +8,13 @@ env_file = ROOT_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    db_url: str
-    db_password: str
+    pgdb_url: str
+    pgdb_password: str
+    rd_host: str
+    rd_port: int
+    rd_db: int
+    rd_password: str
+    outdated_session: int
 
     class Config:
         env_file = env_file          # 告诉 pydantic 去加载 .env
