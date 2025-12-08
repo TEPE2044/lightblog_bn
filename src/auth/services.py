@@ -1,4 +1,3 @@
-import asyncio
 import random
 from src.utils.aliyun_client import create_client
 from alibabacloud_dypnsapi20170525.models import SendSmsVerifyCodeRequest
@@ -25,9 +24,6 @@ async def send_sms_code_async(phone: str) -> bool:
         print(sms_res)
         return True
     except Exception as e:
+        # 此处逻辑需要根据实际情况处理
         print("验证码发送失败", e)
         return False
-
-
-# Testing the function
-asyncio.run(send_sms_code_async('13435176859'))
