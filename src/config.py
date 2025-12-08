@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     rd_db: int
     rd_password: str
     outdated_session: int
+    aliyun_key:str
+    aliyun_secret:str
 
     class Config:
         env_file = env_file          # 告诉 pydantic 去加载 .env

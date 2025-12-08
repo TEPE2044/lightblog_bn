@@ -1,8 +1,19 @@
 # 数据库模型
 from pydantic import BaseModel
 
+
 # 表单数据模型
-class EmailFormData(BaseModel):
+class AccountFormData(BaseModel):
     account: str
     hash_password: str
 
+
+class SMSFormData(BaseModel):
+    codeActive: bool
+    phone: str
+
+
+class PhoneFormData(BaseModel):
+    phone: str
+    code:str
+    iaccept:bool
