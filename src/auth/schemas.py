@@ -15,5 +15,5 @@ class SMSFormData(BaseModel):
 
 class PhoneFormData(BaseModel):
     phone: str
-    code:str
+    code: str
     iaccept:bool
