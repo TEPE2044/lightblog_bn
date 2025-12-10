@@ -1,10 +1,16 @@
+import asyncio
 import random
 from typing import List
 
-from src.database import db_dependency
+from sqlalchemy import select, exists, insert
+from sqlalchemy.exc import IntegrityError
+
+from src.database import db_dependency, rd_dependency
+from src.orm.model import User
 from src.utils.aliyun_client import create_client
 from alibabacloud_dypnsapi20170525.models import SendSmsVerifyCodeRequest, CheckSmsVerifyCodeRequest
 from alibabacloud_tea_util.models import RuntimeOptions
+import re
 
 
 # SendSmsVerifyCodeRequest他妈的早就废弃了，示例还在用，气死我了
@@ -42,7 +48,7 @@ async def send_sms_code_async(phone: str) -> bool:
 
 
 # aliyun-pns:checkSmsVerifyCode
-async def is_code_valid(args: List[str]) -> bool:
+async def is_code_valid(args: List[str], rd: rd_dependency) -> bool:
     client = create_client()
     check_sms_verify_code_request = CheckSmsVerifyCodeRequest(
         phone_number=args[0],
@@ -54,8 +60,41 @@ async def is_code_valid(args: List[str]) -> bool:
         success = res.body
         verfiyresult = res.body.model
         print(verfiyresult)
+        # 将手机号、验证码存Redis，设置过期时间5分钟
+        # bug fix
+        await rd.setex(args[0], 300, args[1])
         return bool(success)
     except Exception as e:
-        # 此处逻辑需要根据实际情况处理
         print("验证码校验失败", e)
         return False
+
+
+async def phone_validation(phone: str) -> bool:
+    pattern = re.compile(r"^1[3-9]\d{9}$")
+    return bool(re.match(pattern, phone))
+
+
+# .is_()  是 SQLAlchemy 用来生成 SQL 的  IS  操作符 的方法
+async def isUserExists(phone: str, db: db_dependency) -> bool:
+    isExist = select(exists().where(User.phone == phone))
+    result = await db.execute(isExist)
+    return result.scalars()
+
+
+async def registerNewUser(phone: str, db: db_dependency) -> bool:
+    new_user = insert(User).values(phone=phone, username=f"探星使者_{random.randint(10000, 99999)}")
+    try:
+        await db.execute(new_user)
+        await db.commit()
+        return True
+    except IntegrityError:
+        await db.rollback()
+        return False
+
+
+async def recent(phone: str, rd: rd_dependency) -> bool:
+    ok = await rd.exists(phone)
+    # test passed
+    # print("手机号", type(phone), phone)
+    # print("redis", bool(ok))
+    return bool(ok)

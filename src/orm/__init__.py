@@ -1,0 +1,19 @@
+from enum import Enum
+
+
+class SexEnum(int, Enum):
+    unknown = 0
+    male = 1
+    female = 2
+
+
+class UserTypeEnum(int, Enum):
+    ordinary = 0
+    admin = 1
+    supreme = 2
+
+
+class StatusEnum(int, Enum):
+    active = 0
+    blocked = 1
+    inactive = 2

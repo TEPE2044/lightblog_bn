@@ -9,19 +9,17 @@ env_file = ROOT_DIR / ".env"
 
 class Settings(BaseSettings):
     pgdb_url: str
-    pgdb_ab_url:str
+    pgdb_ab_url: str
     pgdb_password: str
-    rd_host: str
-    rd_port: int
-    rd_db: int
-    rd_password: str
+    rd_url: str
+    rd_local_url:str
     outdated_session: int
-    aliyun_key:str
-    aliyun_secret:str
+    aliyun_key: str
+    aliyun_secret: str
 
     class Config:
-        env_file = env_file          # 告诉 pydantic 去加载 .env
-        case_sensitive = False       # 不区分大小写
+        env_file = env_file  # 告诉 pydantic 去加载 .env
+        case_sensitive = False  # 不区分大小写
 
 
 # 单例，随处导入

@@ -11,7 +11,7 @@ class User(Base):
 
     id = Column(UUID, primary_key=True, server_default=text("gen_random_uuid()"), comment="用户ID")
     phone = Column(String(20), unique=True, index=True, nullable=False, comment="手机号")
-    hashed_password = Column(String(255), nullable=False, comment="哈希密码")
+    hashed_password = Column(String(255), nullable=True, comment="哈希密码")
     username = Column(String(35), index=True, nullable=False, comment="用户名")
     sex = Column(Enum(SexEnum), default=SexEnum.unknown, nullable=False, comment="0未知 1男 2女")
     email = Column(String(320), unique=True, index=True, nullable=True, comment="电子邮箱")

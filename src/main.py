@@ -1,11 +1,11 @@
 from fastapi import FastAPI, APIRouter
 import fastapi_cdn_host
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from src.auth.router import authRouter
 
-app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs",
-              redoc_url="/api/v1/redoc", )
+app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs", redoc_url="/api/v1/redoc",
+              version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
