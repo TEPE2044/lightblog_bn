@@ -9,6 +9,7 @@ env_file = ROOT_DIR / ".env"
 
 class Settings(BaseSettings):
     pgdb_url: str
+    pgdb_ab_url:str
     pgdb_password: str
     rd_host: str
     rd_port: int
