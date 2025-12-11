@@ -36,8 +36,6 @@ async def send_sms_code_async(phone: str) -> bool:
             print("验证码发送失败,获取bizId失败")
             return False
         else:
-            # 存redis去，过期时间5分钟
-            # print(sms_res)
             print(bizId)
             # print(sms_res.body.success, type(sms_res.body.success), success, type(success))
             return bool(success)
@@ -60,7 +58,6 @@ async def is_code_valid(args: List[str], rd: rd_dependency) -> bool:
         success = res.body
         verfiyresult = res.body.model
         print(verfiyresult)
-        # 将手机号、验证码存Redis，设置过期时间5分钟
         # bug fix
         await rd.setex(args[0], 300, args[1])
         return bool(success)
@@ -74,14 +71,11 @@ async def phone_validation(phone: str) -> bool:
     return bool(re.match(pattern, phone))
 
 
-# .is_()  是 SQLAlchemy 用来生成 SQL 的  IS  操作符 的方法
-async def isUserExists(phone: str, db: db_dependency) -> bool:
-    isExist = select(exists().where(User.phone == phone))
-    result = await db.execute(isExist)
-    return result.scalars()
+async def is_user_exists(phone: str, db: db_dependency) -> bool:
+    return await db.scalar(select(exists().where(User.phone == phone)))
 
 
-async def registerNewUser(phone: str, db: db_dependency) -> bool:
+async def register_new_user(phone: str, db: db_dependency) -> bool:
     new_user = insert(User).values(phone=phone, username=f"探星使者_{random.randint(10000, 99999)}")
     try:
         await db.execute(new_user)
