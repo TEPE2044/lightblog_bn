@@ -1,5 +1,11 @@
 # 命令行工具使用说明
 
+## 在CMD进入虚拟环境
+```bash
+cd lightblog_bn
+.venv\Scripts\activate    
+```
+
 ## 启动项目
 ```bash
 uvicorn src.main:app --reload --port 12404 --log-level debug
