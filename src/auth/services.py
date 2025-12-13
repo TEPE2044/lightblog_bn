@@ -54,7 +54,8 @@ async def is_code_valid(args: List[str], rd: rd_dependency) -> bool:
     )
     runtime = RuntimeOptions()
     try:
-        res = await client.check_sms_verify_code_with_options_async(check_sms_verify_code_request, runtime)
+        res = await client.check_sms_verify_code_with_options_async(check_sms_verify_code_request,
+                                                                    runtime)
         success = res.body
         verfiyresult = res.body.model
         print(verfiyresult)
@@ -92,3 +93,12 @@ async def recent(phone: str, rd: rd_dependency) -> bool:
     # print("手机号", type(phone), phone)
     # print("redis", bool(ok))
     return bool(ok)
+
+
+async def account_validation(args: List[str]) -> bool:
+    if args is None or len(args) != 2:
+        return False
+    account = bool(phone_validation(args[0]) and args[0] is not None)
+    password = bool(args[1] is not None and len(args[1]) >= 6)
+    return account and password
+

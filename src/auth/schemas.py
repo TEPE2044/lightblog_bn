@@ -5,7 +5,7 @@ from pydantic import BaseModel
 # 表单数据模型
 class AccountFormData(BaseModel):
     account: str
-    hash_password: str
+    password: str
 
 
 class SMSFormData(BaseModel):
