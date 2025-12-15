@@ -8,12 +8,17 @@ cd lightblog_bn
 
 ## 启动项目
 ```bash
-uvicorn src.main:app --reload --port 10404 --log-level debug
+uvicorn src.main:app --reload --port 12404 --log-level debug
 ```
 
 ## 更新requirements.txt
 ```bash
 pip freeze > requirements.txt
+```
+
+## 安装requirements.txt
+```bash
+pip install -r requirements.txt
 ```
 
 ## 同步数据库

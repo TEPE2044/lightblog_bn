@@ -3,20 +3,21 @@ from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation
 from src.database import db_dependency, rd_dependency
-from src.user.service import query_user_basic
-from src.utils.jwt_client import create_access_token, create_test_token
+from src.user.services import query_user
+from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
 
 @authRouter.post("/fake-login-by-account", summary="伪造账号登录（测试专用）")
 async def fake_login_by_account(front: AccountFormData, db: db_dependency):
-    return {'token': '12341', 'status': 200, 'msg': '登录成功'}
+    return {'tokens': '12341', 'status': 200, 'msg': '登录成功'}
 
 
 # 测试手机号 17328113179
 @authRouter.post("/fake-sms-code", summary="伪造短信验证码（测试专用）")
 async def fake_sms_code(front: SMSFormData):
+    # TODO:后续限制获取验证码的频率
     try:
         if front.codeActive is False:
             raise HTTPException(status_code=400, detail="验证码发送失败")
@@ -37,9 +38,9 @@ async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_depend
     if isPhone is False:
         raise HTTPException(status_code=400, detail="手机号格式错误")
     if isRecent is True:
-        token = await create_test_token(front.phone)
-        user_info = await query_user_basic(front.phone, db)
-        return {"status": "200", "msg": "最近登录的", "token": token, "userinfo": user_info}
+        # TODO:随机串token
+        tokens = await create_all_tokens(front.phone, rd)
+        return {"status": "200", "msg": "最近登录的", "tokens": tokens}
     # 检查用户是否同意协议
     elif front.iaccept is False:
         raise HTTPException(status_code=400, detail="用户未同意协议")
@@ -48,22 +49,18 @@ async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_depend
     if isCode is False:
         raise HTTPException(status_code=400, detail="验证码无效或已过期")
     print(isCode)
-
     # 查询数据库中是否有该手机号,没有则注册新用户，
     isUser = await is_user_exists(front.phone, db)
     print(isUser, "用户存在性检查完毕")
     if isUser is True:
-        # 生成token返回前端
-        token = await create_test_token(front.phone)
-        user_info = await query_user_basic(front.phone, db)
-        return {"status": "200", "msg": "老用户", "token": token, "data": user_info}
+        # payload作为真正的token
+        tokens = await create_all_tokens(front.phone, rd)
+        return {"status": "200", "msg": "老用户登陆成功", "tokens": tokens}
     else:
         # 注册新用户
         await register_new_user(front.phone, db)
-        user_info = await query_user_basic(front.phone, db)
-        token = await create_test_token(front.phone)
-        return {"status": "201", "msg": "新用户注册成功，请完善资料", "token": token,
-                "data": user_info}
+        tokens = await create_all_tokens(front.phone, rd)
+        return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens}
         # 生成token返回前端
 
 
@@ -88,7 +85,7 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
     isRecent = await recent(front.phone, rd)
     if isRecent is True:
         token = await create_access_token(front.phone)
-        user_info = await query_user_basic(front.phone, db)
+        user_info = await query_user(front.phone, db)
         return {"status": "200", "msg": "登录成功", "token": token, "userinfo": user_info}
     if isPhone is False:
         raise HTTPException(status_code=400, detail="手机号格式错误")
@@ -107,12 +104,12 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
     if isUser is True:
         # 生成token返回前端
         token = await create_access_token(front.phone)
-        user_info = await query_user_basic(front.phone, db)
+        user_info = await query_user(front.phone, db)
         return {"status": "200", "msg": "登录成功", "token": token, "data": user_info}
     else:
         # 注册新用户
         await register_new_user(front.phone, db)
-        user_info = await query_user_basic(front.phone, db)
+        user_info = await query_user(front.phone, db)
         token = await create_access_token(front.phone)
         return {"status": "201", "msg": "新用户注册成功，请完善资料", "token": token,
                 "data": user_info}

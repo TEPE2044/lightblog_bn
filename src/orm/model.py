@@ -98,3 +98,10 @@ class User(Base):
         nullable=True,
         comment="软删除时间 NULL=未删除"
     )
+
+    avatar: Mapped[str | None] = mapped_column(
+        String(255),
+        server_default='https://projeck.obs.cn-south-1.myhuaweicloud.com/UserIcon/1/20250706135900_avatar.jpg',
+        nullable=False,
+        comment="用户头像URL"
+    )
