@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
 
 from src.database import db_dependency, rd_dependency
 from src.user.services import query_user, auth_current_user
@@ -7,12 +7,13 @@ from src.user.services import query_user, auth_current_user
 userRouter = APIRouter(prefix="/user", tags=['用户模块'])
 
 security = HTTPBearer()
+x_payload = APIKeyHeader(name="X-Payload")
 
 
 # userCRUD
 
 @userRouter.get("/profile", summary="获取用户个人信息获取接口")
-async def get_user_profile(db: db_dependency, rd: rd_dependency, request: Request,):
+async def get_user_profile(db: db_dependency, rd: rd_dependency, request: Request):
     isIt = await auth_current_user(request, rd)
     print(isIt)
     if isIt is False:

@@ -9,13 +9,13 @@ from src.utils.jwt_client import create_access_token, create_reks_code, create_a
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
 
-@authRouter.post("/fake-login-by-account", summary="伪造账号登录（测试专用）")
+@authRouter.post("/fake-login-by-account", summary="测试-账号登录")
 async def fake_login_by_account(front: AccountFormData, db: db_dependency):
     return {'tokens': '12341', 'status': 200, 'msg': '登录成功'}
 
 
 # 测试手机号 17328113179
-@authRouter.post("/fake-sms-code", summary="伪造短信验证码（测试专用）")
+@authRouter.post("/fake-sms-code", summary="测试-获取短信验证码")
 async def fake_sms_code(front: SMSFormData):
     # TODO:后续限制获取验证码的频率
     try:
@@ -30,7 +30,7 @@ async def fake_sms_code(front: SMSFormData):
 
 
 # 测试手机号 17328113179
-@authRouter.post("/fake-login-by-phone", summary="伪造验证码校验（测试专用）")
+@authRouter.post("/fake-login-by-phone", summary="测试-手机号验证码登录")
 async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_dependency):
     isPhone = await phone_validation(front.phone)
     isRecent = await recent(front.phone, rd)
@@ -38,7 +38,7 @@ async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_depend
     if isPhone is False:
         raise HTTPException(status_code=400, detail="手机号格式错误")
     if isRecent is True:
-        # TODO:随机串token
+        # 随机串token
         tokens = await create_all_tokens(front.phone, rd)
         return {"status": "200", "msg": "最近登录的", "tokens": tokens}
     # 检查用户是否同意协议
