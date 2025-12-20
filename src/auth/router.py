@@ -1,7 +1,9 @@
+from typing import List
+
 from fastapi import APIRouter, HTTPException
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
-    recent, is_user_exists, register_new_user, account_validation
+    recent, is_user_exists, register_new_user, account_validation, user_login
 from src.database import db_dependency, rd_dependency
 from src.user.services import query_user
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens
@@ -9,9 +11,26 @@ from src.utils.jwt_client import create_access_token, create_reks_code, create_a
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
 
+@authRouter.post("/safe-settiings", summary="安全设置")
+async def safe_settings():
+    # TODO:实现安全设置功能
+    # TODO:设置密码，设置邮箱，设置密保问题
+    # 后期待开发：安全密钥，直接用于二次验证
+    return {"status": "200", "msg": "安全设置成功"}
+
+
 @authRouter.post("/fake-login-by-account", summary="测试-账号登录")
-async def fake_login_by_account(front: AccountFormData, db: db_dependency):
-    return {'tokens': '12341', 'status': 200, 'msg': '登录成功'}
+async def fake_login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
+    # 检查账号格式 + 校验是否有账号
+    isAccount = (await account_validation([front.account, front.password])
+                 and await user_login(front.account,front.password, db))
+
+    # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
+    if isAccount is True:
+        tokens = await create_all_tokens(front.account, rd)
+        return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
+    else:
+        raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
 
 
 # 测试手机号 17328113179
@@ -31,9 +50,11 @@ async def fake_sms_code(front: SMSFormData):
 
 # 测试手机号 17328113179
 @authRouter.post("/fake-login-by-phone", summary="测试-手机号验证码登录")
-async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_dependency):
+async def fake_login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_dependency):
     isPhone = await phone_validation(front.phone)
     isRecent = await recent(front.phone, rd)
+    # 避免键值对堆积
+    await rd.delete(front.phone)
     await rd.setex(front.phone, 300, front.code)
     if isPhone is False:
         raise HTTPException(status_code=400, detail="手机号格式错误")
@@ -44,6 +65,7 @@ async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_depend
     # 检查用户是否同意协议
     elif front.iaccept is False:
         raise HTTPException(status_code=400, detail="用户未同意协议")
+
     # 检验验证码是否正确(阿里云)
     isCode = front.code == "1234"
     if isCode is False:
@@ -60,7 +82,8 @@ async def test_code_valid(front: PhoneFormData, db: db_dependency, rd: rd_depend
         # 注册新用户
         await register_new_user(front.phone, db)
         tokens = await create_all_tokens(front.phone, rd)
-        return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens}
+        return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens,
+                "user-status": "new"}
         # 生成token返回前端
 
 
