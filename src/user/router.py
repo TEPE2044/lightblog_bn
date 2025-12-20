@@ -3,6 +3,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHea
 
 from src.database import db_dependency, rd_dependency
 from src.user.services import query_user, auth_current_user
+from strawberry.fastapi import GraphQLRouter
+from strawberry.schema import Schema
+from src.user.gql.query import UserQuery
 
 userRouter = APIRouter(prefix="/user", tags=['用户模块'])
 

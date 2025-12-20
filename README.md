@@ -34,3 +34,13 @@ alembic upgrade head
 
 # alembic revision --autogenerate -m "init user table"
 ```
+
+
+## StrawBerry接口与普通接口对比
+| REST 概念            | GraphQL 草莓等价               |
+| ------------------ | -------------------------- |
+| Pydantic Model     | `@strawberry.type`         |
+| `@router.get(...)` | `@strawberry.field`        |
+| 依赖注入 `Depends`     | `info.context["xxx"]`（手动塞） |
+| 路径参数 `/users/{id}` | 字段参数 `user(id: ID!)`       |
+| 404/401 状态码        | 抛 `Exception` → `errors[]` |
