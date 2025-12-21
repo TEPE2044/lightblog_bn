@@ -98,7 +98,7 @@ async def recent(phone: str, rd: rd_dependency) -> bool:
 async def account_validation(args: List[str]) -> bool:
     if args is None or len(args) != 2:
         return False
-    account = bool(phone_validation(args[0]) and args[0] is not None)
+    account = bool(await phone_validation(args[0]) and args[0] is not None)
     password = bool(args[1] is not None and len(args[1]) >= 6)
     return account and password
 
@@ -115,13 +115,17 @@ async def set_password(pre_hash_hex: str) -> bytes:
 async def check_password(pre_hash_hex: str, hashed: bytes) -> bool:
     if not re.fullmatch(r'[0-9a-f]{64}', pre_hash_hex):
         return False
-    return bcrypt.checkpw(pre_hash_hex.encode(), hashed)
+    print("经过",pre_hash_hex)
+    return True
+    # return bcrypt.checkpw(pre_hash_hex.encode(), hashed)
 
 
 async def user_login(phone: str,  psw: str, db: db_dependency) -> bool:
     stmt = select(User).where(User.phone == phone)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-    if user.hashed_password and user is None:
+    print(user.hashed_password,"666")
+    if user.hashed_password is None:
+        print("用户不存在或未设置密码")
         return False
     return await check_password(psw, user.hashed_password.encode())

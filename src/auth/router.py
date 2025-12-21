@@ -22,13 +22,16 @@ async def safe_settings():
 @authRouter.post("/fake-login-by-account", summary="测试-账号登录")
 async def fake_login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
     # 检查账号格式 + 校验是否有账号
-    isAccount = (await account_validation([front.account, front.password])
-                 and await user_login(front.account,front.password, db))
+    isAccount = await account_validation([front.account, front.password])
 
     # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
     if isAccount is True:
-        tokens = await create_all_tokens(front.account, rd)
-        return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
+        isRight = await user_login(front.account,front.password, db)
+        if isRight is False:
+                raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
+        else:
+            tokens = await create_all_tokens(front.account, rd)
+            return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
     else:
         raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
 
