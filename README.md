@@ -34,7 +34,10 @@ alembic upgrade head
 
 # alembic revision --autogenerate -m "init user table"
 ```
-
+## 解密keyhex
+```python
+bytes.fromhex('那个密码')
+```
 
 ## StrawBerry接口与普通接口对比
 | REST 概念            | GraphQL 草莓等价               |

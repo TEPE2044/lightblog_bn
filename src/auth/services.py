@@ -1,5 +1,5 @@
 import random
-from typing import List
+from typing import List, Sized
 
 import bcrypt
 from sqlalchemy import select, exists, insert
@@ -104,27 +104,24 @@ async def account_validation(args: List[str]) -> bool:
 
 
 # 注册
-async def set_password(pre_hash_hex: str) -> bytes:
-    # pre_hash_hex 是前端传来的 64 位小写 hex
-    if not re.fullmatch(r'[0-9a-f]{64}', pre_hash_hex):
-        raise ValueError('格式错误')
-    return bcrypt.hashpw(pre_hash_hex.encode(), bcrypt.gensalt(rounds=12))
+async def set_password(psw: str) -> bytes:
+    # 前端在https下，不需要二次hash，直接bcrypt
+    if psw is None and len(psw) < 6:
+        raise ValueError("密码不能为空且长度不能少于6位")
+    return bcrypt.hashpw(psw.encode('utf-8'), bcrypt.gensalt(rounds=12))
 
 
 # 登录
-async def check_password(pre_hash_hex: str, hashed: bytes) -> bool:
-    if not re.fullmatch(r'[0-9a-f]{64}', pre_hash_hex):
-        return False
-    print("经过",pre_hash_hex)
-    return True
-    # return bcrypt.checkpw(pre_hash_hex.encode(), hashed)
+async def check_password(psw: str, hashed: bytes) -> bool:
+    print("经过", psw)
+    return bcrypt.checkpw(psw.encode('utf-8'), hashed)
 
 
-async def user_login(phone: str,  psw: str, db: db_dependency) -> bool:
+async def user_login(phone: str, psw: str, db: db_dependency) -> bool:
     stmt = select(User).where(User.phone == phone)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-    print(user.hashed_password,"666")
+    print(user.hashed_password, "666")
     if user.hashed_password is None:
         print("用户不存在或未设置密码")
         return False

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     aliyun_key: str
     aliyun_secret: str
     jwt_secret: str
+    aes_secret: str
 
     class Config:
         env_file = env_file  # 告诉 pydantic 去加载 .env

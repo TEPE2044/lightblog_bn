@@ -9,6 +9,7 @@ from src.config import settings
 from src.database import rd_dependency
 from src.orm import UserTypeEnum
 from src.orm.model import User
+from src.utils.aes_client import decrypt_phone
 from src.utils.jwt_client import ALGORITHM
 
 
@@ -24,7 +25,8 @@ async def auth_current_user(request, rd: rd_dependency) -> bool | str:
         data = jwt.decode(payload, settings.jwt_secret, algorithms=[ALGORITHM])
     except Exception:
         return False
-    phone_in_jwt: str = data.get("sub")
+
+    phone_in_jwt: str = await decrypt_phone(data.get("sub"))
     phone_in_redis = await rd.get(f"sess:{rcode}")
 
     compare_phone = str(phone_in_jwt) == str(phone_in_redis)

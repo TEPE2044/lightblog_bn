@@ -26,9 +26,9 @@ async def fake_login_by_account(front: AccountFormData, db: db_dependency, rd: r
 
     # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
     if isAccount is True:
-        isRight = await user_login(front.account,front.password, db)
+        isRight = await user_login(front.account, front.password, db)
         if isRight is False:
-                raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
+            raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
         else:
             tokens = await create_all_tokens(front.account, rd)
             return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
@@ -140,3 +140,28 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
         return {"status": "201", "msg": "新用户注册成功，请完善资料", "token": token,
                 "data": user_info}
         # 生成token返回前端
+
+
+# TODO:新增退出接口
+@authRouter.post("/logout", summary="退出登录")
+async def logout():
+    # TODO:实现退出登录功能
+    pass
+    # TODO:清除redis对应的reks_code
+    pass
+    return {"status": "200", "msg": "退出登录成功"}
+
+
+@authRouter.post("/set-password-safety", summary="设置账号密码")
+async def set_password_safety(psw: str):
+    # TODO:密码至少8位，上限30位
+    if psw is None and 8 > len(psw) > 30:
+        raise HTTPException(status_code=400, detail="密码格式错误，密码长度至少6位")
+    # TODO:包含大小写字母，数字，特殊字符
+    pass
+    # TODO:对密码进行哈希，加盐
+    pass
+    # TODO:存入数据库
+    pass
+    # TODO:返回成功信息
+    return {"status": "200", "msg": "密码设置成功"}
