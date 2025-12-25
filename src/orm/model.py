@@ -5,7 +5,7 @@ from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from src.database import Base
-from src.orm import SexEnum, UserTypeEnum, StatusEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum
 
 
 class User(Base):
@@ -48,9 +48,10 @@ class User(Base):
         comment="用户名"
     )
 
-    sex: Mapped[SexEnum] = mapped_column(
-        Enum(SexEnum),
-        default=SexEnum.unknown,
+    gender: Mapped[GenderEnum] = mapped_column(
+        Enum(GenderEnum),
+        default=GenderEnum.unknown,
+        server_default='unknown',
         nullable=False,
         comment="0未知 1男 2女"
     )
@@ -101,7 +102,13 @@ class User(Base):
 
     avatar: Mapped[str | None] = mapped_column(
         String(255),
-        server_default='https://projeck.obs.cn-south-1.myhuaweicloud.com/UserIcon/1/20250706135900_avatar.jpg',
-        nullable=False,
+        nullable=True,
         comment="用户头像URL"
+    )
+
+    signature: Mapped[str | None] = mapped_column(
+        String(255),
+        server_default='这个人很懒，什么都没留下',
+        nullable=False,
+        comment="用户个性签名"
     )

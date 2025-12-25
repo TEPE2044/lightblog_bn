@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class SexEnum(int, Enum):
+class GenderEnum(int, Enum):
     unknown = 0
     male = 1
     female = 2

@@ -15,7 +15,7 @@ from src.utils.jwt_client import ALGORITHM
 
 async def auth_current_user(request, rd: rd_dependency) -> bool | str:
     rcode_h = request.headers.get("authorization") or ""
-    print(rcode_h)
+    # print(rcode_h)
     if not rcode_h.lower().startswith("bearer "):
         return False
     rcode = rcode_h[7:]
@@ -35,5 +35,11 @@ async def auth_current_user(request, rd: rd_dependency) -> bool | str:
     return phone_in_jwt if compare_phone else False
 
 
-async def query_user(phone: str, db: dependency) -> UserTypeEnum | None:
-    return await db.scalar(select(User.type, User.username, User.reks_id, User.avatar).where(User.phone == phone))
+# scalar 查询单列，也就是只能查一个字段
+# first 查多列
+# one_or_none 想确保最多一条，否则算异常
+async def query_user(phone: str, db: dependency):
+    stmt = select(User.username, User.avatar, User.gender, User.type).where(User.phone == phone)
+    # warning db操作是异步,first只是同步方法
+    row = (await db.execute(stmt)).first()
+    return row
