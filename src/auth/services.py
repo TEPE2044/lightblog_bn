@@ -1,8 +1,8 @@
 import random
-from typing import List, Sized
+from typing import List, Sized, Any, Coroutine
 
 import bcrypt
-from sqlalchemy import select, exists, insert
+from sqlalchemy import select, exists, insert, update
 from sqlalchemy.exc import IntegrityError
 
 from src.database import db_dependency, rd_dependency
@@ -103,26 +103,50 @@ async def account_validation(args: List[str]) -> bool:
     return account and password
 
 
+async def password_strength_validation(psw: str) -> bool:
+    pattern = r'^(?![A-Za-z]+$)(?!\d+$)(?![^A-Za-z0-9]+$)[^\s]{6,30}$'
+    return bool(re.match(pattern, psw))
+
+
 # 注册
-async def set_password(psw: str) -> bytes:
+async def hash_password(psw: str) -> bytes:
     # 前端在https下，不需要二次hash，直接bcrypt
-    if psw is None and len(psw) < 6:
-        raise ValueError("密码不能为空且长度不能少于6位")
     return bcrypt.hashpw(psw.encode('utf-8'), bcrypt.gensalt(rounds=12))
 
 
-# 登录
-async def check_password(psw: str, hashed: bytes) -> bool:
-    print("经过", psw)
-    return bcrypt.checkpw(psw.encode('utf-8'), hashed)
+# 密码存入数据库
+async def store_hashed_password(phone: str, hashed: bytes, db: db_dependency) -> bool:
+    try:
+        stmt = update(User).where(User.phone == phone).values(hashed_password=hashed.decode("utf-8"))
+        await db.execute(stmt)
+        await db.commit()
+        return True
+    except IntegrityError:
+        await db.rollback()
+        return False
 
 
 async def user_login(phone: str, psw: str, db: db_dependency) -> bool:
-    stmt = select(User).where(User.phone == phone)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-    print(user.hashed_password, "666")
-    if user.hashed_password is None:
-        print("用户不存在或未设置密码")
+    # 查询改手机号
+    try:
+        stmt = select(User).where(User.phone == phone)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        # print(user.hashed_password)
+        if user.hashed_password is None:
+            return False
+        return await check_password(psw, user.hashed_password, phone, db)
+    except IntegrityError:
+        await db.rollback()
         return False
-    return await check_password(psw, user.hashed_password.encode())
+
+
+# 登录
+# TODO：BUG，加密后究竟是什么类型的
+async def check_password(psw: str, hashed: str, phone: str, db: db_dependency) -> bool:
+    # 校对密码
+    try:
+        return bool(bcrypt.checkpw(psw.encode('utf-8'), hashed.encode('utf-8')))
+    except IntegrityError:
+        await db.rollback()
+        return False

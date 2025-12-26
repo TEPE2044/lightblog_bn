@@ -1,10 +1,15 @@
+import re
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from sqlalchemy import insert, update
+
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
-    recent, is_user_exists, register_new_user, account_validation, user_login
+    recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
+    hash_password, store_hashed_password
 from src.database import db_dependency, rd_dependency
+from src.orm.model import User
 from src.user.services import query_user
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens
 
@@ -152,16 +157,36 @@ async def logout():
     return {"status": "200", "msg": "退出登录成功"}
 
 
+@authRouter.post("/test-set-password-safety", summary="设置账号密码")
+async def test_password_safety(psw: str, phone: str, db: db_dependency):
+    # 测试账号 18028959280 ，密码 abc1357924680+
+    # 密码至少8位，上限30位，包含大小写字母，数字，特殊字符
+    isStrong = await password_strength_validation(psw)
+    if isStrong is False:
+        raise HTTPException(status_code=400, detail="密码强度不足，需包含大小写字母、数字、特殊字符，且长度在8-30位之间")
+    else:
+        # 对密码进行哈希，加盐
+        psw = await hash_password(psw)
+        # 存入数据库
+        isStore = await store_hashed_password(phone, psw, db)
+        if isStore is True:
+            return {"status": "200", "msg": "密码设置成功"}
+        else:
+            raise HTTPException(status_code=500, detail="密码设置失败，请稍后再试")
+
+
 @authRouter.post("/set-password-safety", summary="设置账号密码")
-async def set_password_safety(psw: str):
-    # TODO:密码至少8位，上限30位
-    if psw is None and 8 > len(psw) > 30:
-        raise HTTPException(status_code=400, detail="密码格式错误，密码长度至少6位")
-    # TODO:包含大小写字母，数字，特殊字符
-    pass
-    # TODO:对密码进行哈希，加盐
-    pass
-    # TODO:存入数据库
-    pass
-    # TODO:返回成功信息
-    return {"status": "200", "msg": "密码设置成功"}
+async def set_password_safety(psw: str, db: db_dependency, request: Request):
+    # 密码至少8位，上限30位
+    # 包含大小写字母，数字，特殊字符
+    # TODO:检验令牌，并且从令牌中获取手机号
+    isStrong = await password_strength_validation(psw)
+    if isStrong is False:
+        raise HTTPException(status_code=400,
+                            detail="密码强度不足，需包含大小写字母、数字、特殊字符，且长度在8-30位之间")
+    else:
+        # 对密码进行哈希，加盐
+        psw = await hash_password(psw)
+        # 存入数据库
+        # TODO:从请求中获取当前用户的手机号
+        return {"status": "200", "msg": "密码设置成功"}
