@@ -15,5 +15,5 @@ class UserTypeEnum(int, Enum):
 
 class StatusEnum(int, Enum):
     active = 0
-    blocked = 1
-    inactive = 2
+    danger = 1
+    block = 2

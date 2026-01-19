@@ -11,6 +11,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 30
 
 
+# TODO:加强令牌配置项，应包含:iss，iat,exp,sub
 async def create_access_token(phone: str) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     phone = await encrypt_phone(phone)

@@ -147,7 +147,7 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
         # 生成token返回前端
 
 
-# TODO:新增退出接口
+# TODO:新增退出接口，让前端在unload/beforeunload里也调一次 logout，减少“关标签没退”残留
 @authRouter.post("/logout", summary="退出登录")
 async def logout():
     # TODO:实现退出登录功能
