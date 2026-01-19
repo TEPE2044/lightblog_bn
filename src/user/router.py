@@ -12,7 +12,7 @@ x_payload = APIKeyHeader(name="X-Payload")
 
 # userCRUD
 
-# TODO:改成GraphQL接口,此接口保留备用
+# 改成GraphQL接口,此接口保留备用
 @userRouter.get("/profile", summary="获取用户个人信息获取接口")
 async def get_user_profile(db: db_dependency, rd: rd_dependency, request: Request):
     isIt = await auth_current_user(request, rd)
@@ -40,7 +40,6 @@ async def post_user_profile():
 @userRouter.patch("/profile", summary="更新用户个人信息")
 async def update_user_profile():
     return {"status": "200", "msg": "用户信息更新成功", "data": {}}
-
 
 # TODO: 实现头像上传功能
 @userRouter.post("/upload-avatar", summary="上传用户头像")

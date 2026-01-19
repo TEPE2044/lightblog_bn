@@ -175,6 +175,7 @@ async def test_password_safety(psw: str, phone: str, db: db_dependency):
             raise HTTPException(status_code=500, detail="密码设置失败，请稍后再试")
 
 
+# TODO:设置密码
 @authRouter.post("/set-password-safety", summary="设置账号密码")
 async def set_password_safety(psw: str, db: db_dependency, request: Request):
     # 密码至少8位，上限30位
@@ -190,3 +191,21 @@ async def set_password_safety(psw: str, db: db_dependency, request: Request):
         # 存入数据库
         # TODO:从请求中获取当前用户的手机号
         return {"status": "200", "msg": "密码设置成功"}
+
+
+# TODO:设置邮箱
+@authRouter.post("/set-email-safety", summary="设置邮箱")
+async def set_email_safety(email: str):
+    pass
+
+
+# TODO:更换手机号
+@authRouter.post("/change-phone-safety", summary="换绑手机号")
+async def change_phone_safety(phone: str, new_phone: str):
+    pass
+
+
+# TODO:销户
+@authRouter.post("/destroy-account", summary="注销账号")
+async def destroy_account(phone):
+    pass
