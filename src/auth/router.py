@@ -1,16 +1,10 @@
-import re
-from typing import List
-
 from fastapi import APIRouter, HTTPException, Request
-from sqlalchemy import insert, update
-
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
-    hash_password, store_hashed_password
+    hash_password, store_hashed_password, login_out
 from src.database import db_dependency, rd_dependency
-from src.orm.model import User
-from src.user.services import query_user
+from src.user.services import query_user, auth_current_user
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
@@ -147,13 +141,12 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
         # 生成token返回前端
 
 
-# TODO:新增退出接口，让前端在unload/beforeunload里也调一次 logout，减少“关标签没退”残留
-@authRouter.post("/logout", summary="退出登录")
-async def logout():
-    # TODO:实现退出登录功能
-    pass
-    # TODO:清除redis对应的reks_code
-    pass
+# 新增退出接口，让前端在点击退出登录时里调一次 logout
+@authRouter.get("/logout", summary="退出登录")
+async def logout(rd: rd_dependency, request: Request):
+    # 实现退出登录功能,检索请求中的手机号，然后在redis中找到对应的reks_code进行清除
+    is_login_out = await login_out(request, rd)
+    print(is_login_out)
     return {"status": "200", "msg": "退出登录成功"}
 
 
@@ -175,22 +168,31 @@ async def test_password_safety(psw: str, phone: str, db: db_dependency):
             raise HTTPException(status_code=500, detail="密码设置失败，请稍后再试")
 
 
-# TODO:设置密码
+# 设置密码
 @authRouter.post("/set-password-safety", summary="设置账号密码")
-async def set_password_safety(psw: str, db: db_dependency, request: Request):
+async def set_password_safety(psw: str, db: db_dependency, request: Request, rd: rd_dependency):
     # 密码至少8位，上限30位
     # 包含大小写字母，数字，特殊字符
-    # TODO:检验令牌，并且从令牌中获取手机号
-    isStrong = await password_strength_validation(psw)
-    if isStrong is False:
+    # 检验令牌，并且从令牌中获取手机号
+    phone = auth_current_user(request, rd)
+
+    is_strong = await password_strength_validation(psw)
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登录已失效,请重新登录")
+    elif is_strong is False:
         raise HTTPException(status_code=400,
                             detail="密码强度不足，需包含大小写字母、数字、特殊字符，且长度在8-30位之间")
     else:
-        # 对密码进行哈希，加盐
-        psw = await hash_password(psw)
-        # 存入数据库
-        # TODO:从请求中获取当前用户的手机号
-        return {"status": "200", "msg": "密码设置成功"}
+        try:
+            # 对密码进行哈希，加盐
+            psw = await hash_password(psw)
+            # 存入数据库
+            is_stored = await store_hashed_password(phone, psw, db)
+            if is_stored is True:
+                return {"status": "200", "msg": "密码设置成功"}
+        except HTTPException as e:
+            print(e)
+            raise HTTPException(status_code=500, detail="密码设置失败，请稍后再试")
 
 
 # TODO:设置邮箱
