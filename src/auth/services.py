@@ -135,15 +135,23 @@ async def user_login(phone: str, psw: str, db: db_dependency) -> bool:
         # print(user.hashed_password)
         if user.hashed_password is None:
             return False
-        return await check_password(psw, user.hashed_password, phone, db)
+        return await check_password(psw, user.hashed_password, db)
     except IntegrityError:
         await db.rollback()
         return False
 
 
+async def login_out(request, rd: rd_dependency) -> bool:
+    header_rcode = request.headers.get("authorization") or ""
+    if not header_rcode.lower().startswith("bearer "):
+        return False
+    rcode = header_rcode[7:]
+    return bool(await rd.delete(f"sess:{rcode}"))
+
+
 # 登录
-# TODO：BUG，加密后究竟是什么类型的
-async def check_password(psw: str, hashed: str, phone: str, db: db_dependency) -> bool:
+# 不清楚这个TODO：BUG，加密后究竟是什么类型的
+async def check_password(psw: str, hashed: str, db: db_dependency) -> bool:
     # 校对密码
     try:
         return bool(bcrypt.checkpw(psw.encode('utf-8'), hashed.encode('utf-8')))
