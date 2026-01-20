@@ -14,13 +14,15 @@ from src.utils.jwt_client import ALGORITHM
 
 
 async def auth_current_user(request, rd: rd_dependency) -> bool | str:
-    rcode_h = request.headers.get("authorization") or ""
-    # print(rcode_h)
-    if not rcode_h.lower().startswith("bearer "):
+    # rcode
+    header_rcode = request.headers.get("authorization") or ""
+    # print(header_rcode)
+    if not header_rcode.lower().startswith("bearer "):
         return False
-    rcode = rcode_h[7:]
-    payload = request.headers.get("x-payload") or ""
+    rcode = header_rcode[7:]
+
     # 解码payload，然后比较phone和redis中的phone是否一致
+    payload = request.headers.get("x-payload") or ""
     try:
         data = jwt.decode(payload, settings.jwt_secret, algorithms=[ALGORITHM])
     except Exception:
