@@ -1,13 +1,10 @@
-from http.client import HTTPException
-from typing import Tuple, Dict
-
 from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.orm import dependency
 
 from src.config import settings
 from src.database import rd_dependency
-from src.orm import UserTypeEnum
+
 from src.orm.model import User
 from src.utils.aes_client import decrypt_phone
 from src.utils.jwt_client import ALGORITHM
@@ -45,3 +42,5 @@ async def query_user(phone: str, db: dependency):
     # warning db操作是异步,first只是同步方法
     row = (await db.execute(stmt)).first()
     return row
+
+

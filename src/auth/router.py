@@ -1,16 +1,18 @@
-from fastapi import APIRouter, HTTPException, Request
+import limiter
+from fastapi import APIRouter, HTTPException, Request, Query
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
     hash_password, store_hashed_password, login_out
 from src.database import db_dependency, rd_dependency
 from src.user.services import query_user, auth_current_user
-from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens
+from src.auth.services import send_html_mail
+from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
 
-@authRouter.post("/safe-settiings", summary="安全设置")
+@authRouter.post("/safe-settings", summary="安全设置")
 async def safe_settings():
     # TODO:实现安全设置功能
     # TODO:设置密码，设置邮箱，设置密保问题
@@ -195,10 +197,31 @@ async def set_password_safety(psw: str, db: db_dependency, request: Request, rd:
             raise HTTPException(status_code=500, detail="密码设置失败，请稍后再试")
 
 
-# TODO:设置邮箱
+# 设置邮箱
 @authRouter.post("/set-email-safety", summary="设置邮箱")
-async def set_email_safety(email: str):
-    pass
+# @limiter.limit("1/month")          # 同一 IP 1 小时最多 5 次
+async def set_email_safety(email: str, rd: rd_dependency):
+    tc = await create_temp_code(rd, email)
+    # rlink = f'https://dev.rekindlers.top?token={tc}'
+    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
+    is_send = await send_html_mail(email, rlink)
+    if is_send is not True:
+        raise HTTPException(status_code=500, detail="发送邮件失败")
+
+
+# 校验邮箱
+@authRouter.get("/verify-email", summary="验证邮箱")
+async def email_check(rd: rd_dependency, token: str = Query(..., min_length=20, description="邮箱临时令牌")):
+    try:
+        email = await rd.get(f"temp{token}")
+        if email is None:
+            raise HTTPException(status_code=404, detail="令牌无效或已过期")
+        await rd.delete(f"temp{token}")
+        print("邮箱校验成功")
+        # TODO:将邮箱写入数据库
+        return {'msg': "邮箱绑定成功"}
+    except Exception as e:
+        print(e)
 
 
 # TODO:更换手机号

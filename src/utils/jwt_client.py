@@ -44,3 +44,9 @@ async def create_all_tokens(phone: str, rd: rd_dependency) -> dict:
         "payload": payload,
         "rcode": reks_code
     }
+
+
+async def create_temp_code(rd: rd_dependency, email: str) -> str:
+    tc = secrets.token_urlsafe(32)
+    await rd.setex(f"temp{tc}", 300, email)
+    return tc

@@ -1,10 +1,14 @@
 import random
+import smtplib
+from email.header import Header
+from email.mime.text import MIMEText
 from typing import List, Sized, Any, Coroutine
 
 import bcrypt
 from sqlalchemy import select, exists, insert, update
 from sqlalchemy.exc import IntegrityError
 
+from src.config import settings
 from src.database import db_dependency, rd_dependency
 from src.orm.model import User
 from src.utils.aliyun_client import create_client
@@ -157,4 +161,130 @@ async def check_password(psw: str, hashed: str, db: db_dependency) -> bool:
         return bool(bcrypt.checkpw(psw.encode('utf-8'), hashed.encode('utf-8')))
     except IntegrityError:
         await db.rollback()
+        return False
+
+
+# 发送HTML邮件
+# bug:链接无法带入
+async def send_html_mail(target: str, rlink: str) -> bool:
+    html_content = f"""
+    <!doctype html>
+    <html lang="zh-CN">
+      <head>
+        <meta charset="utf-8" />
+        <title>ReKindlers验证码</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5">
+        <table
+          role="presentation"
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          width="100%"
+        >
+          <tr>
+            <td style="padding: 40px 0">
+              <!--[if mso]>
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" width="600">
+              <tr><td>
+              <![endif]-->
+              <table
+                role="presentation"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                width="100%"
+                style="
+                  max-width: 600px;
+                  margin: 0 auto;
+                  background-color: #ffffff;
+                  border-radius: 6px;
+                "
+              >
+                <tr>
+                  <td
+                    style="
+                      padding: 80px 80px;
+                      font-family: Arial, Helvetica, sans-serif;
+                      font-size: 16px;
+                      line-height: 24px;
+                      color: #333333;
+                    "
+                  >
+                    <h2
+                      style="
+                        margin: 0 0 15px;
+                        font-size: 22px;
+                        color: rgb(114, 23, 23);
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                      "
+                    >
+                      ReKindlers 若坎达斯
+                    </h2>
+                    <p style="color: #999; font-size: 16px">
+                      欢迎来到邮箱校验环节,点击下方按钮即可完成邮箱验证。
+                    </p>
+                    <p style="color: #999; font-size: 14px">
+                      本次验证将在10分钟后关闭
+                    </p>
+                    <!-- 按钮区 -->
+                    <table
+                      role="presentation"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                      align="center"
+                      style="margin: 30px auto"
+                    >
+                      <tr>
+                        <td style="border-radius: 4px; background-color: #b22223">
+                          <a
+                            href="{rlink}"
+                            target="_blank"
+                            style="
+                              display: block;
+                              padding: 12px 30px;
+                              font-size: 16px;
+                              font-weight: bold;
+                              color: #ffffff;
+                              text-decoration: none;
+                              border-radius: 4px;
+                            "
+                            >开始验证</a
+                          >
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="font-size: 12px; color: #999">
+                      如果按钮无法点击，请复制链接到浏览器：<br />{rlink}
+                    </p>
+                  </td>
+
+                </tr>
+
+              </table>
+              <!--[if mso]>
+              </td></tr></table>
+              <![endif]-->
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    message = MIMEText(html_content, 'html', 'utf-8')
+    message['From'] = Header(settings.em_sender)
+    message['To'] = Header(target)
+    message['Subject'] = Header('一封来自ReKindlers的信')
+
+    try:
+        with smtplib.SMTP_SSL('smtp.163.com', 465) as smtp:
+            smtp.login(settings.em_sender, settings.em_password)
+            smtp.sendmail(settings.em_sender, target, message.as_string())
+        print(f"HTML 验证邮件已发送至 {target}")
+        return True
+    except smtplib.SMTPException as e:
+        print("发送失败：", e)
         return False
