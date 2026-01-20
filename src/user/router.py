@@ -14,18 +14,18 @@ x_payload = APIKeyHeader(name="X-Payload")
 
 @userRouter.get("/profile", summary="获取用户个人信息获取接口")
 async def get_user_profile(db: db_dependency, rd: rd_dependency, request: Request):
-    isIt = await auth_current_user(request, rd)
-    print(isIt)
-    # isIt 是 手机号字符串 或 False
-    if isIt is False:
+    phone = await auth_current_user(request, rd)
+    print(phone)
+    # phone 是 手机号字符串 或 False
+    if phone is False:
         raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
 
-    username, avatar, sex, type = await query_user(isIt, db)
+    username, avatar, gender, type = await query_user(phone, db)
     # sex字段优化成gender
     userInfo = {
         "username": username,
         "avatar": avatar,
-        "sex": sex,
+        "gender": gender,
         "type": type
     }
     return {"status": "200", "msg": "用户信息获取成功", "data": userInfo}
