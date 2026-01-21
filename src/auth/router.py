@@ -5,19 +5,11 @@ from src.auth.services import send_sms_code_async, is_code_valid, phone_validati
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
     hash_password, store_hashed_password, login_out
 from src.database import db_dependency, rd_dependency
-from src.user.services import query_user, auth_current_user
+from src.user.services import query_user, auth_current_user, auth_phone
 from src.auth.services import send_html_mail
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
-
-
-@authRouter.post("/safe-settings", summary="安全设置")
-async def safe_settings():
-    # TODO:实现安全设置功能
-    # TODO:设置密码，设置邮箱，设置密保问题
-    # 后期待开发：安全密钥，直接用于二次验证
-    return {"status": "200", "msg": "安全设置成功"}
 
 
 @authRouter.post("/fake-login-by-account", summary="测试-账号登录")
@@ -172,16 +164,15 @@ async def test_password_safety(psw: str, phone: str, db: db_dependency):
 
 # 设置密码
 @authRouter.post("/set-password-safety", summary="设置账号密码")
-async def set_password_safety(psw: str, db: db_dependency, request: Request, rd: rd_dependency):
+async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone):
     # 密码至少8位，上限30位
     # 包含大小写字母，数字，特殊字符
     # 检验令牌，并且从令牌中获取手机号
-    phone = auth_current_user(request, rd)
-
-    is_strong = await password_strength_validation(psw)
     if phone is False:
         raise HTTPException(status_code=401, detail="登录已失效,请重新登录")
-    elif is_strong is False:
+
+    is_strong = await password_strength_validation(psw)
+    if is_strong is False:
         raise HTTPException(status_code=400,
                             detail="密码强度不足，需包含大小写字母、数字、特殊字符，且长度在8-30位之间")
     else:
