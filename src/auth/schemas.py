@@ -1,6 +1,6 @@
 # 数据库模型
-from pydantic.v1 import BaseModel
-from pydantic.v1 import Field
+from pydantic import BaseModel
+from pydantic import Field
 
 
 # ...是 Ellipsis的简写，表示该字段是必需的
