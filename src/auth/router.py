@@ -1,4 +1,3 @@
-import limiter
 from fastapi import APIRouter, HTTPException, Request, Query
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
