@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity
+from typing import List
+
+from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
-from src.orm import UserTypeEnum, StatusEnum, GenderEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, BlogEnum, BlogStateEnum
 
 
 class User(Base):
@@ -111,4 +113,99 @@ class User(Base):
         server_default='这个人很懒，什么都没留下',
         nullable=False,
         comment="用户个性签名"
+    )
+
+
+# 关系表无需新建类 - Tag 和 Blog n*n
+blogs_tags = Table(
+    "blogs_tags",
+    Base.metadata,
+    Column(
+        "blog_id",
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        primary_key=True,
+        comment="Blog ID"
+    ),
+    Column(
+        "tag_id",
+        ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+        comment="Tag ID"
+    ),
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="标签id"
+    )
+
+    name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+
+class Blog(Base):
+    __tablename__ = "blogs"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="博客id"
+    )
+
+    type: Mapped[BlogEnum] = mapped_column(
+        Enum(BlogEnum),
+        default=BlogEnum.draft,
+        nullable=False,
+        comment="0草稿 1正式"
+    )
+
+    state: Mapped[BlogStateEnum] = mapped_column(
+        Enum(BlogStateEnum),
+        default=BlogStateEnum.normal,
+        nullable=False,
+        comment="0正常 1已删除 2被封禁"
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        comment="博客标题"
+    )
+
+    content: Mapped[text] = mapped_column(
+        TEXT,
+        nullable=False,
+        comment="博客内容"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+    # 外键,数组类型
+    tags: Mapped[List[Tag]] = relationship(
+        secondary=blogs_tags,
+        back_populates="blogs"
     )
