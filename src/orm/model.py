@@ -150,6 +150,10 @@ class Tag(Base):
 
     name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
+    blogs: Mapped[List["Blog"]] = relationship(
+        secondary=blogs_tags,
+        back_populates="tags"
+    )
 
 class Blog(Base):
     __tablename__ = "blogs"
@@ -204,7 +208,7 @@ class Blog(Base):
         nullable=False,
         comment="更新时间"
     )
-    # 外键,数组类型
+    # 外键
     tags: Mapped[List[Tag]] = relationship(
         secondary=blogs_tags,
         back_populates="blogs"
