@@ -10,14 +10,13 @@ from src.utils.jwt_client import create_access_token, create_reks_code, create_a
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
-
 @authRouter.post("/login-by-account", summary="账号登录")
-async def fake_login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
+async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
     # 检查账号格式 + 校验是否有账号
-    isAccount = await account_validation([front.account, front.password])
+    is_account = await account_validation([front.account, front.password])
 
     # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
-    if isAccount is True:
+    if is_account is True:
         isRight = await user_login(front.account, front.password, db)
         if isRight is False:
             raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
@@ -48,7 +47,7 @@ async def fake_sms_code(front: SMSFormData):
 async def fake_login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_dependency):
     isPhone = await phone_validation(front.phone)
     isRecent = await recent(front.phone, rd)
-    # 避免键值对堆积
+    # 避免键值对堆积，用于阻止用户刷验证码
     await rd.delete(front.phone)
     await rd.setex(front.phone, 300, front.code)
     if isPhone is False:
@@ -101,6 +100,9 @@ async def send_sms_code(front: SMSFormData):
 async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_dependency):
     isPhone = await phone_validation(front.phone)
     isRecent = await recent(front.phone, rd)
+    # 避免键值对堆积
+    await rd.delete(front.phone)
+    await rd.setex(front.phone, 300, front.code)
     if isRecent is True:
         token = await create_access_token(front.phone)
         user_info = await query_user(front.phone, db)
