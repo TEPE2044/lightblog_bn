@@ -56,3 +56,4 @@ bytes.fromhex('那个密码')
 
 ## 配置WebHooks
 - 需要多次尝试
+- 必要的时候去除SSL验证
