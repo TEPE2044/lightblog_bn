@@ -10,7 +10,7 @@ from src.config import settings
 @lru_cache
 def get_redis() -> redis.Redis:
     return redis.from_url(
-        settings.rd_local_url,
+        settings.rd_url,
         encoding='utf-8',
         decode_responses=True
     )
