@@ -49,3 +49,6 @@ bytes.fromhex('那个密码')
 | 404/401 状态码        | 抛 `Exception` → `errors[]` |
 
 ## 修改分支的名称
+### back_populates
+- 目的是查询的时候可以双向查询，比如User查询它的Blogs，Blog查询它的User
+- 要写就两边都写，不然就全都删掉
