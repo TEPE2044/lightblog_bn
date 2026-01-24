@@ -11,7 +11,7 @@ app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/a
               version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://dev.rekindlers.top"],
+    allow_origins=["https://dev.rekindlers.top"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
