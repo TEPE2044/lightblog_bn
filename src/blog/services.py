@@ -8,40 +8,14 @@ from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
 # 获取博客
-async def get_blogs(rid: int, db: db_dependency) -> Dict | None:
+async def get_blogs(id: int, db: db_dependency) -> Dict | None:
     # 满足条件：是发布的、是正常的、有id的
     try:
         stmt = (select(Blog).where(
             and_(
-                Blog.type == 'published',
+                Blog.type == 'publish',
                 Blog.state == 'normal',
-                Blog.id == rid
-            )
-        ))
-        # 只可有一条，但是允许是空的
-        blog = (await db.execute(stmt)).scalar_one_or_none()
-        if not blog:
-            return None
-        print(blog.title)
-        return {
-            "title": blog.title,
-            "content": blog.content,
-            "updated_at": blog.updated_at,
-            "type": blog.type
-        }
-    except Exception as e:
-        print(e)
-        return None
-
-
-# 获取博客草稿
-async def get_drafts(rid: int, db: db_dependency) -> Dict | None:
-    try:
-        stmt = (select(Blog).where(
-            and_(
-                Blog.type == 'draft',
-                Blog.state == 'normal',
-                Blog.id == rid
+                Blog.id == id
             )
         ))
         # 只可有一条，但是允许是空的
@@ -91,3 +65,15 @@ async def upsert_blog(data: BlogData, db: db_dependency) -> bool:
     except Exception as e:
         print(e)
         return False
+
+
+# TODO:获取一个用户的所有博客，包括草稿箱，可能要进行分页查询
+async def query_user_blogs(rid: int, db: db_dependency) -> list[Blog] | None:
+    try:
+        join_blog = select(Blog).where(Blog.rid == rid).order_by(Blog.updated_at.desc())
+        blogs = (await db.execute(join_blog)).scalars().all()
+        return blogs
+    except Exception as e:
+        print(e)
+        return None
+

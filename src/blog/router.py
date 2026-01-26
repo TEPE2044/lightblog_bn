@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
-
+from math import ceil
+from fastapi import Query
+from sqlalchemy import func, select
 from src.blog.schemas import BlogData
-from src.blog.services import get_blogs, get_drafts, upsert_blog
+from src.blog.services import get_blogs, upsert_blog, query_user_blogs
 from src.database import db_dependency
-from src.user.services import auth_phone
+from src.user.services import auth_phone, query_user_rid
 from src.utils.xss_clean import clean_content
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
@@ -12,16 +14,27 @@ blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 # 博客CRUD
 
 # 读取有效博客不需要鉴权
-@blogRouter.get("/{rid}", summary="根据rid读取博客")
-async def get_blog_by_id(rid: int, db: db_dependency):
-    return await get_blogs(rid, db)
+@blogRouter.get("/detail/{id}", summary="根据id获取博客")
+async def get_blog_by_id(id: int, db: db_dependency):
+    return await get_blogs(id, db)
 
 
-@blogRouter.get("/draft/{rid}", summary="根据id读取草稿箱")
-async def get_draft(rid: int, db: db_dependency, phone: auth_phone):
-    # if phone is False:
-    #     raise HTTPException(status_code=401, detail="当前登录状态已过期")
-    return await get_drafts(rid, db)
+# bug-fix:根目录下首先注册blog/{id}后，任何这个格式都会被要求提供参数
+# TODO:分页查询
+@blogRouter.get("/my-blog", summary="获取当前用户所有博客和草稿")
+async def get_my_blog(phone: auth_phone, db: db_dependency):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="当前登录状态已过期")
+    try:
+        rid = await query_user_rid(phone, db)
+        if rid is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        my_blog = await query_user_blogs(rid, db)
+        if my_blog is not None:
+            return {"msg": "获取成功", "blogs": my_blog}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=404, detail="获取博客失败")
 
 
 # 使用PostgreSQL的upsert方法，插入与更新一体化
@@ -44,6 +57,6 @@ async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone):
 
 
 @blogRouter.delete("/delete-blog", summary="删除博客")
-async def delete_blog():
-    # 返回  204 No Content
-    pass
+async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="当前登录状态已过期")
