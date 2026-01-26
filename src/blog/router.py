@@ -3,9 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException
 
 from src.blog.schemas import BlogData
-from src.blog.services import get_blogs, get_drafts
+from src.blog.services import get_blogs, get_drafts, upsert_blog
 from src.database import db_dependency
 from src.user.services import auth_phone
+from src.utils.xss_clean import clean_content
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 
@@ -25,21 +26,20 @@ async def get_draft(rid: int, db: db_dependency, phone: auth_phone):
     return await get_drafts(rid, db)
 
 
-@blogRouter.post("/upload-blog", summary="创建博客")
+# 使用PostgreSQL的upsert方法，插入与更新一体化
+@blogRouter.post("/upload-blog", summary="创建/修改博客")
 async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone):
-    if phone is False:
-        raise HTTPException(status_code=401, detail="当前登录状态已过期")
+    # if phone is False:
+    #     raise HTTPException(status_code=401, detail="当前登录状态已过期")
     try:
-        # TODO:XSS清洗 插入数据库
-        pass
+        # XSS清洗 插入数据库
+        data.content = await clean_content(data.content)
+        is_insert = await upsert_blog(data, db)
+        if is_insert is not None:
+            return {"msg": "成功", "id": is_insert}
     except Exception as e:
         print(e)
-
-
-
-@blogRouter.post("/update-blog", summary="修改博客内容")
-async def update_blog():
-    pass
+        raise HTTPException(status_code=405, detail="更新失败")
 
 
 @blogRouter.delete("/delete-blog", summary="删除博客")

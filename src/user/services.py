@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Annotated
 from fastapi import Depends, Request
 from jose import jwt
@@ -14,6 +15,7 @@ from src.utils.jwt_client import ALGORITHM
 
 # 这里的Request是FastAPI的Request啊一直都是！
 # 人太傻了怪不得一直踩坑
+@lru_cache
 async def auth_current_user(request: Request, rd: rd_dependency) -> bool | str:
     # rcode
     header_rcode = request.headers.get("authorization") or ""

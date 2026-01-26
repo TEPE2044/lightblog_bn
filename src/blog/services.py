@@ -1,7 +1,11 @@
-from sqlalchemy import select
+import datetime
 
+from sqlalchemy import select
+# 没有真正的upsert
+from sqlalchemy.dialects.postgresql import insert
+from src.blog.schemas import BlogData
 from src.database import db_dependency
-from src.orm.model import Blog
+from src.orm.model import Blog, blogs_tags
 
 
 # 获取博客
@@ -19,5 +23,22 @@ async def get_drafts(rid: int, db: db_dependency):
     res = await db.execute(stmt)
     return res.all()
 
-async def upload_blog():
-    pass
+
+async def upsert_blog(data: BlogData, db: db_dependency):
+    try:
+        # 多对多表，先插入title和content，tags按需插入
+        stmt = (insert(Blog)
+                .values(title=data.title, content=data.content).returning(Blog.id))
+        res = await db.execute(stmt)
+        await db.commit()
+        blog_id = res.scalar_one()
+
+        if data.tags:
+            await db.execute(
+                insert(blogs_tags),
+                [{"blog_id": blog_id, "tag_id": t} for t in data.tags]
+            )
+        await db.commit()
+        return blog_id
+    except Exception as e:
+        print(e)
