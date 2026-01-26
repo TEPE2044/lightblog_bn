@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from src.blog.schemas import BlogData
 from src.database import db_dependency
-from src.orm.model import Blog, blogs_tags
+from src.orm.model import Blog, blogs_tags, Tag
 
 
 # 获取博客
@@ -30,13 +30,23 @@ async def upsert_blog(data: BlogData, db: db_dependency):
         stmt = (insert(Blog)
                 .values(title=data.title, content=data.content).returning(Blog.id))
         res = await db.execute(stmt)
-        await db.commit()
+        # await db.commit() fix:先不要提交
         blog_id = res.scalar_one()
 
         if data.tags:
+            # 先插入Tag表
+            await db.execute(
+                insert(Tag).values([{"name": t} for t in data.tags])
+                .on_conflict_do_nothing(index_elements=["name"])
+            )
+            # 2-b 查出id
+            tag_rows = await db.execute(select(Tag.id).where(Tag.name.in_(data.tags)))
+            tag_ids = [r[0] for r in tag_rows]
+
+            # 后插入中间表
             await db.execute(
                 insert(blogs_tags),
-                [{"blog_id": blog_id, "tag_id": t} for t in data.tags]
+                [{"blog_id": blog_id, "tag_id": tid} for tid in tag_ids]
             )
         await db.commit()
         return blog_id
