@@ -168,7 +168,7 @@ class Blog(Base):
         primary_key=True,
         comment="博客id"
     )
-
+    # TODO:默认值应该为published.
     type: Mapped[BlogEnum] = mapped_column(
         Enum(BlogEnum),
         default=BlogEnum.draft,
