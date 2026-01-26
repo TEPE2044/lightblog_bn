@@ -155,6 +155,7 @@ class Tag(Base):
         back_populates="tags"
     )
 
+
 class Blog(Base):
     __tablename__ = "blogs"
 

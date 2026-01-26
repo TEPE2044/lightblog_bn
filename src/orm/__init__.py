@@ -27,8 +27,8 @@ class BlogEnum(int, Enum):
     publish = 1
 
 
+# 后期加一个hidden限制
 class BlogStateEnum(int, Enum):
     normal = 0
     delete = 1
-    ban = 2
-
+    ban = 2  # 服务于后台接口

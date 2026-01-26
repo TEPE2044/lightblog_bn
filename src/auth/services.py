@@ -2,7 +2,7 @@ import random
 import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
-from typing import List, Sized, Any, Coroutine
+from typing import List
 
 import bcrypt
 from sqlalchemy import select, exists, insert, update
