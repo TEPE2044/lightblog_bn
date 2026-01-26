@@ -217,6 +217,15 @@ class Blog(Base):
         nullable=False,
         comment="更新时间"
     )
+
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
+
     # 外键
     tags: Mapped[List[Tag]] = relationship(
         secondary=blogs_tags,
