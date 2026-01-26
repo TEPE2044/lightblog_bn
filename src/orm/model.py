@@ -150,6 +150,14 @@ class Tag(Base):
 
     name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+
     blogs: Mapped[List["Blog"]] = relationship(
         secondary=blogs_tags,
         back_populates="tags"
@@ -168,10 +176,10 @@ class Blog(Base):
         primary_key=True,
         comment="博客id"
     )
-    # TODO:默认值应该为published.
+
     type: Mapped[BlogEnum] = mapped_column(
         Enum(BlogEnum),
-        default=BlogEnum.draft,
+        default=BlogEnum.publish,
         nullable=False,
         comment="0草稿 1正式"
     )

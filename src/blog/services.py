@@ -60,13 +60,9 @@ async def get_drafts(rid: int, db: db_dependency) -> Dict | None:
         return None
 
 
-
 async def upsert_blog(data: BlogData, db: db_dependency) -> bool:
     try:
         async with db.begin():
-            # TODO:还是太迟了
-            if data.tags:
-                filter_tags = set(data.tags)
             # 先插入title和content，并且最终返回插入后的内容blog
             insert_blog = prt(Blog).values(title=data.title, content=data.content).returning(Blog)
             blog = (await db.execute(insert_blog)).scalar_one()
@@ -74,8 +70,8 @@ async def upsert_blog(data: BlogData, db: db_dependency) -> bool:
             print(blog_id)
             # 如果有tags，插入tags到Tag表中，tags的格式['apple','egg','pen']
 
-            # insert_tag = prt(Tag).values([{"name": tag} for tag in set(data.tags)]).returning(Tag)
-            insert_tag = prt(Tag).values([{"name": tag} for tag in filter_tags]).returning(Tag)
+            insert_tag = prt(Tag).values([{"name": tag} for tag in set(data.tags)]).returning(Tag)
+            # insert_tag = prt(Tag).values([{"name": tag} for tag in filter_tags]).returning(Tag)
             tags = (await db.execute(insert_tag)).all()
             # 提取成一个列表
             tag_ids = [t[0].id for t in tags]
