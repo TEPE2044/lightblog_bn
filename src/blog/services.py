@@ -3,7 +3,7 @@ from typing import Dict
 from sqlalchemy import select, and_, insert, func
 from src.blog.schemas import BlogData
 from src.database import db_dependency
-from src.orm.model import Blog, blogs_tags, Tag
+from src.orm.model import Blog, blogs_tags, Tag, Gallery
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
@@ -77,3 +77,13 @@ async def query_user_blogs(rid: int, db: db_dependency) -> list[Blog] | None:
         print(e)
         return None
 
+
+async def insert_into_gallery(rid: int, href: str, db: db_dependency) -> bool:
+    async with db.begin():
+        stmt = insert(Gallery).values(rid=rid, url=href, alt=f"pic{href}").returning(Gallery.id)
+        row = (await db.execute(stmt)).scalar_one_or_none()
+        print(row)
+        if row is not None:
+            return True
+        else:
+            return False

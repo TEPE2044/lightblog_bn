@@ -11,7 +11,7 @@ app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/a
               version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:9022"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,4 +30,3 @@ app.openapi = custom_openapi(app)
 @app.get("/", tags=["根路由"])
 async def root():
     return {"message": "ReKindlers-音乐轻博客平台"}
-
