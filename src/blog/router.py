@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
+
 from src.blog.schemas import BlogData
-from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery
+from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, file_md5, query_by_hash
 from src.database import db_dependency
 from src.user.services import auth_phone, query_user_rid
-from src.utils.obs_client import img_upload
+from src.utils.obs_client import img_upload, pre_link
 from src.utils.xss_clean import clean_content
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
@@ -60,29 +61,42 @@ async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
         raise HTTPException(401, "当前登录状态已过期")
 
 
+# 异步上传
 @blogRouter.post("/upload/img", summary="上传图片")
-async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...), ):
+async def upload_img(phone: auth_phone, background: BackgroundTasks, db: db_dependency, img: UploadFile = File(...), ):
     # if phone is False:
     #     raise HTTPException(401, "当前登录状态已过期")
     if not (img.content_type.startswith("image/")):
         raise HTTPException(400, "文件格式不符合要求")
 
-    # rid = await query_user_rid(phone, db)
-    rid = 1  # 测试用
+    # 先解哈希然后找相同哈希
+    cur_md5 = await file_md5(img)
+    existed = await query_by_hash(cur_md5, db)
+    if existed:
+        return {"errno": 0, "data": {"url": existed, "alt": f"reks-{existed}"}}
+    try:
+        # 根据手机号获取用户的id
+        rid = 1
+        # rid = await query_user_rid(phone, db)
+        href = await pre_link(rid, img)
+        # 先行落库
+        await insert_into_gallery(rid, href, cur_md5, db)
+        # 后台异步
+        background.add_task(img_upload, rid, img)
 
-    href = await img_upload(rid, img)
-    await insert_into_gallery(rid, href, db)
-    print(href)
-    if href is None:
-        return {
-            "errno": 1,
-            "message": HTTPException(400, "上传失败")
-        }
-    else:
-        return {
-            "errno": 0,
-            "data": {
-                "url": href,
-                "alt": href
+        if href is None:
+            return {
+                "errno": 1,
+                "message": HTTPException(400, "上传失败")
             }
-        }
+        else:
+            return {
+                "errno": 0,
+                "data": {
+                    "url": href,
+                    "alt": f"reks-{href}"
+                }
+            }
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "上传丢失/失败")

@@ -1,5 +1,7 @@
+import hashlib
 from typing import Dict
 
+from fastapi import UploadFile
 from sqlalchemy import select, and_, insert, func
 from src.blog.schemas import BlogData
 from src.database import db_dependency
@@ -78,12 +80,27 @@ async def query_user_blogs(rid: int, db: db_dependency) -> list[Blog] | None:
         return None
 
 
-async def insert_into_gallery(rid: int, href: str, db: db_dependency) -> bool:
-    async with db.begin():
-        stmt = insert(Gallery).values(rid=rid, url=href, alt=f"pic{href}").returning(Gallery.id)
-        row = (await db.execute(stmt)).scalar_one_or_none()
-        print(row)
-        if row is not None:
-            return True
-        else:
-            return False
+async def insert_into_gallery(rid: int, href: str, md5: str, db: db_dependency) -> bool:
+    stmt = insert(Gallery).values(rid=rid, url=href, alt=f"reks-{href}", md5=md5).returning(Gallery.id)
+    row = (await db.execute(stmt)).scalar_one_or_none()
+    await db.commit()
+    print(row)
+    if row is not None:
+        return True
+    else:
+        return False
+
+
+# 计算MD5 看不懂但是很牛逼
+async def file_md5(upload_file: UploadFile) -> str:
+    hasher = hashlib.md5()
+    while chunk := await upload_file.read(8192):
+        hasher.update(chunk)
+    await upload_file.seek(0)
+    return hasher.hexdigest()
+
+
+# 查找重复项
+async def query_by_hash(md5: str, db: db_dependency) -> str | None:
+    stmt = select(Gallery.url).filter(Gallery.md5 == md5).limit(1)
+    return (await db.execute(stmt)).scalar_one_or_none()

@@ -22,10 +22,16 @@ myObs = OBSUtils()
 myBucket = "projeck"
 
 
+async def pre_link(rid: int, img: UploadFile) -> str:
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    img_key = f"RImg/{rid}/{timestamp}_img{Path(img.filename).suffix}"
+    iurl = f"https://{myBucket}.obs.cn-south-1.myhuaweicloud.com/{img_key}"
+    print(iurl)
+    return iurl
+
+
 async def img_upload(rid: int, img: UploadFile) -> str | None:
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    print(img.filename)
-    print("---------")
 
     img_key = f"RImg/{rid}/{timestamp}_img{Path(img.filename).suffix}"
     # print('endpoint:', repr(settings.obs_endpoint), type(settings.obs_endpoint))
@@ -42,9 +48,8 @@ async def img_upload(rid: int, img: UploadFile) -> str | None:
     except Exception as e:
         print(e)
         try:
-            await run_in_threadpool(
-                lambda: myObs.client.deleteObject(bucketName=myBucket, objectKey=img_key)
-            )
-        except Exception:
-            pass
+            myObs.client.deleteObject(bucketName=myBucket, objectKey=img_key)
+        except Exception as e:
+            print(e)
+            return None
         return None
