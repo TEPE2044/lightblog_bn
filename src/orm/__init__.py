@@ -32,3 +32,9 @@ class BlogStateEnum(int, Enum):
     normal = 0
     delete = 1
     ban = 2  # 服务于后台接口
+
+
+class ImgEnum(int, Enum):
+    file = 0
+    pic = 1
+    avatar = 2

@@ -28,3 +28,6 @@ def custom_openapi(app):
         return openapi_schema
 
     return openapi  # ← 返回 callable
+
+
+
