@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File
 
 from src.blog.schemas import BlogData
 from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, file_md5, query_by_hash
@@ -63,7 +63,7 @@ async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
 
 # 异步上传
 @blogRouter.post("/upload/img", summary="上传图片")
-async def upload_img(phone: auth_phone, background: BackgroundTasks, db: db_dependency, img: UploadFile = File(...), ):
+async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...), ):
     # if phone is False:
     #     raise HTTPException(401, "当前登录状态已过期")
     if not (img.content_type.startswith("image/")):
@@ -82,7 +82,8 @@ async def upload_img(phone: auth_phone, background: BackgroundTasks, db: db_depe
         # 先行落库
         await insert_into_gallery(rid, href, cur_md5, db)
         # 后台异步
-        background.add_task(img_upload, rid, img)
+        # background.add_task(img_upload, rid, img)
+        await img_upload(rid, img)
 
         if href is None:
             return {
