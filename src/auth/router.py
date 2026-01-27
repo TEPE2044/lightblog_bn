@@ -10,6 +10,7 @@ from src.utils.jwt_client import create_access_token, create_reks_code, create_a
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
+
 @authRouter.post("/login-by-account", summary="账号登录")
 async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
     # 检查账号格式 + 校验是否有账号

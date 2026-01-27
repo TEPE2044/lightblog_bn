@@ -30,4 +30,3 @@ app.openapi = custom_openapi(app)
 @app.get("/", tags=["根路由"])
 async def root():
     return {"message": "ReKindlers-音乐轻博客平台"}
-

@@ -7,7 +7,7 @@ from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TE
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
-from src.orm import UserTypeEnum, StatusEnum, GenderEnum, BlogEnum, BlogStateEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, BlogEnum, BlogStateEnum, ImgEnum
 
 
 class User(Base):
@@ -150,10 +150,19 @@ class Tag(Base):
 
     name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+
     blogs: Mapped[List["Blog"]] = relationship(
         secondary=blogs_tags,
         back_populates="tags"
     )
+
 
 class Blog(Base):
     __tablename__ = "blogs"
@@ -170,7 +179,7 @@ class Blog(Base):
 
     type: Mapped[BlogEnum] = mapped_column(
         Enum(BlogEnum),
-        default=BlogEnum.draft,
+        default=BlogEnum.publish,
         nullable=False,
         comment="0草稿 1正式"
     )
@@ -208,8 +217,70 @@ class Blog(Base):
         nullable=False,
         comment="更新时间"
     )
+
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
     # 外键
     tags: Mapped[List[Tag]] = relationship(
         secondary=blogs_tags,
         back_populates="blogs"
+    )
+
+
+class Gallery(Base):
+    __tablename__ = 'gallery'
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="图片id"
+    )
+
+    type: Mapped[ImgEnum] = mapped_column(
+        Enum(ImgEnum),
+        default=ImgEnum.file,
+        nullable=False,
+        comment="0文件图片 1普通图片"
+    )
+
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
+    url: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="图片链接"
+    )
+
+    alt: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="图片描述"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+
+    md5: Mapped[str | None] = mapped_column(
+        String(32),
+        index=True,
+        unique=True,
+        nullable=True,
+        comment="文件哈希"
     )

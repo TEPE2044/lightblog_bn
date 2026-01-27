@@ -57,3 +57,4 @@ async def post_user_profile():
 @userRouter.patch("/profile", summary="更新用户个人信息")
 async def update_user_profile():
     return {"status": "200", "msg": "用户信息更新成功", "data": {}}
+
