@@ -40,12 +40,14 @@ async def get_my_blog(phone: auth_phone, db: db_dependency):
 # 关联一个user_id
 @blogRouter.post("/my-blog/new", summary="创建博客")
 async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone):
-    # if phone is False:
-    #     raise HTTPException(401, "当前登录状态已过期")
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
     try:
+        rid = await query_user_rid(phone, db)
         # XSS清洗 插入数据库
+        # TODO:限制发布次数
         data.content = await clean_content(data.content)
-        is_insert = await upsert_blog(data, db)
+        is_insert = await upsert_blog(data,rid, db)
         if is_insert is True:
             return {"msg": is_insert}
         else:
@@ -63,9 +65,9 @@ async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
 
 # 异步上传
 @blogRouter.post("/upload/img", summary="上传图片")
-async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...), ):
-    # if phone is False:
-    #     raise HTTPException(401, "当前登录状态已过期")
+async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...)):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
     if not (img.content_type.startswith("image/")):
         raise HTTPException(400, "文件格式不符合要求")
 
@@ -76,8 +78,7 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
         return {"errno": 0, "data": {"url": existed, "alt": f"reks-{existed}"}}
     try:
         # 根据手机号获取用户的id
-        rid = 1
-        # rid = await query_user_rid(phone, db)
+        rid = await query_user_rid(phone, db)
         href = await pre_link(rid, img)
         # 先行落库
         await insert_into_gallery(rid, href, cur_md5, db)
