@@ -27,6 +27,11 @@ $env:PYTHONUTF8="1"
 alembic upgrade head
 ```
 
+## 回滚迁移
+```bash
+alembic downgrade -1
+```
+
 ## 生成数据库迁移文件
 ### WARNING!!! 此命令只有在模型有变更时才需要执行
 ### WARNING!!! 不要再使用`Base.metadata.create_all(bind=engine)`，请使用Alembic进行数据库迁移

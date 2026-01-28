@@ -106,3 +106,27 @@ if context.is_offline_mode():
 else:
     run_migrations_online()
 ```
+
+### 生成迁移文件
+```bash
+alembic revision --autogenerate -m "init user table"
+```
+
+### 执行迁移
+```bash
+alembic upgrade head
+```
+
+### 回滚迁移
+```bash
+alembic downgrade -1
+```
+
+### 字段缺失对策
+- 千万不要手动删除数据库字段！
+- 千万不要在手动修改后执行alembic stamp head
+- 正确做法是：
+  - 手动删除字段后，生成新迁移文件
+  - 执行alembic upgrade head
+  - 重新写入正确字段，生成新迁移文件
+  - 执行alembic upgrade head
