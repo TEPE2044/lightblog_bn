@@ -195,8 +195,7 @@ async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone):
 # @limiter.limit("1/month")          # 同一 IP 1 小时最多 5 次
 async def set_email_safety(email: str, rd: rd_dependency):
     tc = await create_temp_code(rd, email)
-    # rlink = f'https://dev.rekindlers.top?token={tc}'
-    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
+    rlink = f'http://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}'  # 测试专用
     is_send = await send_html_mail(email, rlink)
     if is_send is not True:
         raise HTTPException(status_code=500, detail="发送邮件失败")
