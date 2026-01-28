@@ -1,5 +1,3 @@
-Generic single-database configuration.
-
 # 本地连接服务器数据库开发指南
 ## 使用alembic
 
