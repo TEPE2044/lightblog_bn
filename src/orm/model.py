@@ -117,6 +117,7 @@ class User(Base):
 
 
 # 关系表无需新建类 - Tag 和 Blog n*n
+# 显式  Table  定义，没有对应的 ORM 类, 查询时使用.c
 blogs_tags = Table(
     "blogs_tags",
     Base.metadata,
@@ -124,12 +125,14 @@ blogs_tags = Table(
         "blog_id",
         ForeignKey("blogs.id", ondelete="CASCADE"),
         primary_key=True,
+        index=True,
         comment="Blog ID"
     ),
     Column(
         "tag_id",
         ForeignKey("tags.id", ondelete="CASCADE"),
         primary_key=True,
+        index=True,
         comment="Tag ID"
     ),
 )
