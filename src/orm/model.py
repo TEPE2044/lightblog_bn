@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, ForeignKey
+from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, ForeignKey, Boolean, \
+    true
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
@@ -115,8 +116,11 @@ class User(Base):
         comment="用户个性签名"
     )
 
+    playlists: Mapped[list["PlayList"]] = relationship(back_populates='creator')
+
 
 # 关系表无需新建类 - Tag 和 Blog n*n
+# 没业务字段用 Table，有业务字段就建类
 # 显式  Table  定义，没有对应的 ORM 类, 查询时使用.c
 blogs_tags = Table(
     "blogs_tags",
@@ -289,3 +293,92 @@ class Gallery(Base):
     )
 
 
+class PlaylistMusic(Base):
+    __tablename__ = 'playlists_music'
+
+    # 指向歌单：级联删除
+    playlist_id: Mapped[int] = mapped_column(
+        ForeignKey('playlist.id', ondelete='CASCADE'),
+        primary_key=True
+    )
+
+    # 指向歌曲：普通外键，**不开级联**
+    # ← 不写 ondelete
+    music_id: Mapped[int] = mapped_column(
+        ForeignKey('music.id'),
+        primary_key=True
+    )
+
+    sort_order: Mapped[int] = mapped_column(default=0)
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    playlist: Mapped["PlayList"] = relationship(back_populates='tracks')
+
+
+class Music(Base):
+    __tablename__ = 'music'
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="音频id"
+    )
+    name: Mapped[str] = mapped_column(
+        String(100), index=True, nullable=False, comment="音频名称"
+    )
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(User.reks_id),
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+    state: Mapped[BlogStateEnum] = mapped_column(
+        Enum(BlogStateEnum, native_enum=False),
+        default=BlogStateEnum.normal,
+        nullable=False,
+        comment="0正常 1已删除 2被封禁"
+    )
+    original: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=true(),
+        nullable=False,
+        comment="是否原创"
+    )
+    cover: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        server_default='https://picsum.photos/seed/picsum/200/300',
+        comment="封面URL"
+    )
+    audio: Mapped[str] = mapped_column(String, nullable=False, comment="音频URL")
+    desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
+
+
+class PlayList(Base):
+    __tablename__ = 'playlist'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="歌单id")
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment='歌单标题')
+    cover: Mapped[str | None] = mapped_column(String(500), comment='封面URL')
+    desc: Mapped[str | None] = mapped_column(String(500), comment='简介')
+    is_private: Mapped[bool] = mapped_column(default=False, comment='是否私密')
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(User.reks_id),
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                 onupdate=func.now())
+    # 关系
+    creator: Mapped[User] = relationship(back_populates='playlists')
+    tracks: Mapped[list[PlaylistMusic]] = relationship(back_populates='playlist', cascade='all, delete-orphan')

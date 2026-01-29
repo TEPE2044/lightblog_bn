@@ -27,9 +27,9 @@ $env:PYTHONUTF8="1"
 alembic upgrade head
 ```
 
-## 回滚迁移
+## WARNING!!! 回滚的是版本，revision成功只是生成了迁移文件，并没有执行迁移 
 ```bash
-alembic downgrade -1
+#alembic downgrade -1
 ```
 
 ## 生成数据库迁移文件

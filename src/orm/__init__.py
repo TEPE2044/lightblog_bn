@@ -34,6 +34,7 @@ class BlogStateEnum(int, Enum):
     ban = 2  # 服务于后台接口
 
 
+
 class ImgEnum(int, Enum):
     file = 0
     pic = 1
