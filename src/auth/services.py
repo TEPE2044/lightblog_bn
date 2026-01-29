@@ -77,12 +77,14 @@ async def phone_validation(phone: str) -> bool:
 
 
 async def is_user_exists(phone: str, db: db_dependency) -> bool:
+    print("-------")
     return await db.scalar(select(exists().where(User.phone == phone)))
 
 
 async def register_new_user(phone: str, db: db_dependency) -> bool:
     new_user = insert(User).values(phone=phone, username=f"探星使者_{random.randint(10000, 99999)}")
     try:
+        print("-------")
         await db.execute(new_user)
         await db.commit()
         return True
