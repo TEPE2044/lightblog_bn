@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
@@ -130,7 +132,24 @@ async def set_email_safety(email: str, rd: rd_dependency):
         raise HTTPException(status_code=500, detail="发送邮件失败")
 
 
+@authRouter.post("/reset-pn", summary="邮箱重置手机号")
+# @limiter.limit("1/month")          # 同一 IP 1 小时最多 5 次
+async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency):
+    # TODO:检验旧手机号是否在库，
+    # TODO:检验新手机号是否正规手机号
+    #
+    tc = await create_temp_code(rd, email)
+    # rlink = f'https://dev.rekindlers.top?token={tc}'
+    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
+    is_send = await send_html_mail(email, rlink)
+    if is_send is not True:
+        raise HTTPException(status_code=500, detail="发送邮件失败")
+
+# TODO:重置手机号
+
 # 校验邮箱
+# 用途1：设置密码
+
 @authRouter.get("/verify-email", summary="验证邮箱")
 async def email_check(rd: rd_dependency, token: str = Query(..., min_length=20, description="邮箱临时令牌")):
     try:
@@ -139,10 +158,10 @@ async def email_check(rd: rd_dependency, token: str = Query(..., min_length=20, 
             raise HTTPException(status_code=404, detail="令牌无效或已过期")
         await rd.delete(f"temp{token}")
         print("邮箱校验成功")
-        # TODO:将邮箱写入数据库
         return {'msg': "邮箱绑定成功"}
     except Exception as e:
         print(e)
+        raise HTTPException(400, "流程出错，请联系管理员！")
 
 
 # TODO:更换手机号
