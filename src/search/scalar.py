@@ -1,37 +1,33 @@
-import json
-
 import strawberry
 from strawberry.fastapi import GraphQLRouter
 
-from src.database.redis_train import train
-from src.subscribe import BlogSnapshot
-
+from src.search import BlogResult
 
 # Info是啥
-
-
+'''
+TODO:
+1.博客搜索
+- 标签搜索 + 模糊搜索 
+2.电台搜索 
+- 标签搜索 + 模糊搜索 
+3.用户搜索
+- 模糊搜索 
+'''
 @strawberry.type
 class Query:
     @strawberry.field
-    def temp(self) -> str:
-        return 'nihao'
+    def blog_search(self) -> BlogResult:
+        # TODO:搜索
+        pass
+        return BlogResult
 
+    @strawberry.field
+    def radio_search(self) -> str:
+        pass
 
-@strawberry.type
-class Mutation:
-    @strawberry.mutation(description='手动造一条博客事件（给所有粉丝推送）')
-    async def publish_blog_event(self, blog_id: int, title: str, author_id: int) -> BlogSnapshot:
-        # 1. 先假装写库（你原来 insert 的地方）
-        # await db.execute(...)
+    @strawberry.field
+    def user_search(self) -> str:
+        pass
 
-        # 2. 直接往全局频道丢（测试阶段先广播，后面再改私人频道）
-        await train.publish("BLOG_NEW", json.dumps({
-            "blogId": blog_id,
-            "title": title,
-            "authorId": author_id
-        }))
-        return BlogSnapshot(blog_id, title, author_id)
-
-
-search_schema = strawberry.Schema(query=Query,mutation=Mutation)
+search_schema = strawberry.Schema(query=Query)
 searchRouter = GraphQLRouter(search_schema, path="gql/subql")

@@ -195,7 +195,7 @@ class Blog(Base):
         Enum(BlogStateEnum),
         default=BlogStateEnum.normal,
         nullable=False,
-        comment="0正常 1已删除 2被封禁"
+        comment="0草稿 1正常 2已删除 3被封禁"
     )
 
     title: Mapped[str] = mapped_column(
