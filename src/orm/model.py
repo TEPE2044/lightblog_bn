@@ -8,7 +8,7 @@ from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TE
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
-from src.orm import UserTypeEnum, StatusEnum, GenderEnum, BlogEnum, BlogStateEnum, ImgEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum
 
 
 class User(Base):
@@ -186,14 +186,14 @@ class Blog(Base):
 
     type: Mapped[BlogEnum] = mapped_column(
         Enum(BlogEnum),
-        default=BlogEnum.publish,
+        default=BlogEnum.blog,
         nullable=False,
-        comment="0草稿 1正式"
+        comment="0音乐博客 1博客"
     )
 
     state: Mapped[BlogStateEnum] = mapped_column(
         Enum(BlogStateEnum),
-        default=BlogStateEnum.normal,
+        default=BlogStateEnum.publish,
         nullable=False,
         comment="0草稿 1正常 2已删除 3被封禁"
     )
@@ -342,8 +342,7 @@ class Music(Base):
     )
     state: Mapped[BlogStateEnum] = mapped_column(
         Enum(BlogStateEnum, native_enum=False),
-        default=BlogStateEnum.normal,
-        nullable=False,
+        nullable=True,
         comment="0正常 1已删除 2被封禁"
     )
     original: Mapped[bool] = mapped_column(

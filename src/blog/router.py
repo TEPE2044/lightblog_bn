@@ -53,10 +53,10 @@ async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone, blog
         if is_insert is True:
             return {"msg": is_insert}
         else:
-            raise HTTPException(405, "创建失败")
+            raise HTTPException(405, "创建失败1")
     except Exception as e:
         print(e)
-        raise HTTPException(405, "创建失败")
+        raise HTTPException(405, "创建失败2")
 
 
 @blogRouter.delete("/delete-blog", summary="删除博客")

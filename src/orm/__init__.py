@@ -23,15 +23,16 @@ class StatusEnum(int, Enum):
 
 
 class BlogEnum(int, Enum):
-    draft = 0
-    publish = 1
+    mblog = 0
+    blog = 1
 
 
 # 后期加一个hidden限制
 class BlogStateEnum(int, Enum):
-    normal = 0
-    delete = 1
-    ban = 2  # 服务于后台接口
+    draft = 0
+    publish = 1
+    delete = 2
+    ban = 3  # 服务于后台接口
 
 
 
