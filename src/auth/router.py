@@ -1,5 +1,7 @@
 from typing import Optional
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
@@ -12,6 +14,7 @@ from src.auth.services import send_html_mail
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @authRouter.post("/login-by-account", summary="账号登录")
@@ -96,7 +99,8 @@ async def logout(rd: rd_dependency, request: Request):
 
 # 设置密码
 @authRouter.post("/set-password-safety", summary="设置账号密码")
-async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone):
+@limiter.limit("1/month")  # 想要用limiter，需要显式定义request
+async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone, request: Request):
     # 密码至少8位，上限30位
     # 包含大小写字母，数字，特殊字符
     # 检验令牌，并且从令牌中获取手机号
@@ -122,8 +126,8 @@ async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone):
 
 # 设置邮箱
 @authRouter.post("/set-email-safety", summary="设置邮箱")
-# @limiter.limit("1/month")          # 同一 IP 1 小时最多 5 次
-async def set_email_safety(email: str, rd: rd_dependency):
+@limiter.limit("1/month")  # 想要用limiter，需要显式定义request
+async def set_email_safety(email: str, rd: rd_dependency, request: Request):
     tc = await create_temp_code(rd, email)
     # rlink = f'https://dev.rekindlers.top?token={tc}'
     rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
@@ -133,7 +137,7 @@ async def set_email_safety(email: str, rd: rd_dependency):
 
 
 @authRouter.post("/reset-pn", summary="邮箱重置手机号")
-# @limiter.limit("1/month")          # 同一 IP 1 小时最多 5 次
+@limiter.limit("5/month")  # 想要用limiter，需要显式定义request
 async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency):
     # TODO:检验旧手机号是否在库，
     # TODO:检验新手机号是否正规手机号
@@ -144,6 +148,7 @@ async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency):
     is_send = await send_html_mail(email, rlink)
     if is_send is not True:
         raise HTTPException(status_code=500, detail="发送邮件失败")
+
 
 # TODO:重置手机号
 

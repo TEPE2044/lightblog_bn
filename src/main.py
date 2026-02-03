@@ -1,5 +1,8 @@
 from fastapi import FastAPI, APIRouter
 import fastapi_cdn_host
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.middleware.cors import CORSMiddleware
 from strawberry import Schema
 from strawberry.fastapi import GraphQLRouter
@@ -21,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 fastapi_cdn_host.patch_docs(app)
+# TODO slowapi
 # API Version 1.0.0
 v1 = APIRouter(prefix="/api/v1")
 v1.include_router(subscribeRouter)
@@ -30,6 +34,7 @@ v1.include_router(userRouter)
 v1.include_router(blogRouter)
 app.include_router(v1)
 app.openapi = custom_openapi(app)
+
 
 
 # MainRouter
