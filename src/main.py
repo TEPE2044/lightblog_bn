@@ -24,7 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 fastapi_cdn_host.patch_docs(app)
-# TODO slowapi
 # API Version 1.0.0
 v1 = APIRouter(prefix="/api/v1")
 v1.include_router(subscribeRouter)

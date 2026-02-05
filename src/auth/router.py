@@ -3,12 +3,14 @@ from typing import Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
+from sqlalchemy import select, update
 
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
     hash_password, store_hashed_password, login_out
 from src.database import db_dependency, rd_dependency
+from src.orm.model import User
 from src.user.services import query_user, auth_current_user, auth_phone
 from src.auth.services import send_html_mail
 from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens, create_temp_code
@@ -138,7 +140,7 @@ async def set_email_safety(email: str, rd: rd_dependency, request: Request):
 
 @authRouter.post("/reset-pn", summary="邮箱重置手机号")
 @limiter.limit("5/month")  # 想要用limiter，需要显式定义request
-async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency,request:Request):
+async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency, request: Request):
     # TODO:检验旧手机号是否在库，
     # TODO:检验新手机号是否正规手机号
     #
@@ -175,7 +177,15 @@ async def change_phone_safety(phone: str, new_phone: str):
     pass
 
 
-# TODO:销户
 @authRouter.post("/destroy-account", summary="注销账号")
-async def destroy_account(phone):
-    pass
+async def destroy_account(phone: auth_phone, db: db_dependency):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登录已失效,请重新登录")
+
+    stmt = select(User).where(User.phone == phone)
+    man = await db.execute(stmt)
+    res = man.scalar_one_or_none()
+    if res is None:
+        raise HTTPException(status_code=400,detail="你是谁，怎么进来的")
+
+    stmt2 = update(User).values('banned')

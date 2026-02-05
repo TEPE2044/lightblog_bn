@@ -20,6 +20,7 @@ class StatusEnum(int, Enum):
     active = 0
     danger = 1
     block = 2
+    deleted = 3
 
 
 class BlogEnum(int, Enum):
