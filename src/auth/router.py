@@ -137,7 +137,7 @@ async def set_email_safety(email: str, rd: rd_dependency, request: Request):
 
 @authRouter.post("/reset-pn", summary="邮箱重置手机号")
 @limiter.limit("5/month")  # 想要用limiter，需要显式定义request
-async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency):
+async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency,request:Request):
     # TODO:检验旧手机号是否在库，
     # TODO:检验新手机号是否正规手机号
     #
