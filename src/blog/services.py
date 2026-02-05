@@ -36,35 +36,48 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
         return None
 
 
-async def upsert_blog(data: BlogData, db: db_dependency) -> bool:
+async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency) -> bool:
     try:
-        async with ((db.begin())):
-            # 先插入title和content，并且最终返回插入后的内容blog
+        # 先插入title和content，并且最终返回插入后的内容blog
+        if blog_id == 0:
             insert_blog = prt(Blog).values(title=data.title, content=data.content,
-                                           rid=data.rid).returning(Blog)
-            blog = (await db.execute(insert_blog)).scalar_one()
-            blog_id = blog.id
-            print(blog_id)
-            # 如果有tags，插入tags到Tag表中，tags的格式['apple','egg','pen']
+                                           rid=rid).returning(Blog)
+        else:
+            insert_blog = (prt(Blog).values(id=blog_id, title=data.title, content=data.content, rid=rid)
+                           .on_conflict_do_update(index_elements=["id"]
+                                                  , set_={
+                    'title': data.title, 'content': data.content, 'updated_at': func.now()})
+                           .returning(Blog))
+        blog = (await db.execute(insert_blog)).scalar_one()
+        blog_id = blog.id
+        print(blog_id)
+        # 如果有tags，插入tags到Tag表中，tags的格式['apple','egg','pen']
 
-            insert_tag = prt(Tag).values([{"name": tag} for tag in set(data.tags)]
-                                         ).on_conflict_do_update(index_elements=["name"],
-                                                                 set_={"updated_at": func.now()}
-                                                                 ).returning(Tag)
-            # insert_tag = prt(Tag).values([{"name": tag} for tag in filter_tags]).returning(Tag)
-            tags = (await db.execute(insert_tag)).all()
-            # 提取成一个列表
-            tag_ids = [t[0].id for t in tags]
+        insert_tag = prt(Tag).values([{"name": tag} for tag in set(data.tags)]
+                                     ).on_conflict_do_update(index_elements=["name"],
+                                                             set_={"updated_at": func.now()}
+                                                             ).returning(Tag)
+        # insert_tag = prt(Tag).values([{"name": tag} for tag in filter_tags]).returning(Tag)
+        tags = (await db.execute(insert_tag)).all()
+        # 提取成一个列表
+        tag_ids = [t[0].id for t in tags]
 
-            # blogs_tags 合成大西瓜
-            bt_collection = [{"blog_id": blog_id, "tag_id": tid} for tid in tag_ids]
+        if blog_id != 0:
+            # 删掉原先的标签
+            await db.execute(
+                blogs_tags.delete().where(blogs_tags.c.blog_id == blog_id)
+            )
 
-            # 如果有bt_collection，写库
-            if bt_collection:
-                await db.execute(insert(blogs_tags).values(bt_collection))
+        # blogs_tags 合成大西瓜
+        bt_collection = [{"blog_id": blog_id, "tag_id": tid} for tid in tag_ids]
 
+        # 如果有bt_collection，写库
+        if bt_collection:
+            await db.execute(insert(blogs_tags).values(bt_collection))
+        await db.commit()
         return True
     except Exception as e:
+        await db.rollback()
         print(e)
         return False
 
@@ -81,7 +94,8 @@ async def query_user_blogs(rid: int, db: db_dependency) -> list[Blog] | None:
 
 
 async def insert_into_gallery(rid: int, href: str, md5: str, db: db_dependency) -> bool:
-    stmt = insert(Gallery).values(rid=rid, url=href, alt=f"reks-{href}", md5=md5).returning(Gallery.id)
+    stmt = insert(Gallery).values(rid=rid, url=href, alt=f"reks-{href}", md5=md5).returning(
+        Gallery.id)
     row = (await db.execute(stmt)).scalar_one_or_none()
     await db.commit()
     print(row)

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, UploadFile, File
 
 from src.blog.schemas import BlogData
@@ -11,12 +13,6 @@ blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 
 
 # 博客CRUD
-
-# 读取有效博客不需要鉴权
-@blogRouter.get("/detail/{id}", summary="根据id获取博客")
-async def get_blog_by_id(id: int, db: db_dependency):
-    return await get_blogs(id, db)
-
 
 # bug-fix:根目录下首先注册blog/{id}后，任何这个格式都会被要求提供参数
 # TODO:分页查询
@@ -36,23 +32,31 @@ async def get_my_blog(phone: auth_phone, db: db_dependency):
         raise HTTPException(404, "获取博客失败")
 
 
+# 读取有效博客不需要鉴权
+@blogRouter.get("/{id}", summary="根据id获取博客")
+async def get_blog_by_id(id: int, db: db_dependency):
+    return await get_blogs(id, db)
+
+
 # 使用PostgreSQL的upsert方法，插入与更新一体化
 # 关联一个user_id
 @blogRouter.post("/my-blog/new", summary="创建博客")
-async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone):
-    # if phone is False:
-    #     raise HTTPException(401, "当前登录状态已过期")
+async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone, blog_id: Optional[int] = 0):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
     try:
+        rid = await query_user_rid(phone, db)
         # XSS清洗 插入数据库
+        # TODO:限制发布次数
         data.content = await clean_content(data.content)
-        is_insert = await upsert_blog(data, db)
+        is_insert = await upsert_blog(data, rid, blog_id or 0, db)
         if is_insert is True:
             return {"msg": is_insert}
         else:
-            raise HTTPException(405, "创建失败")
+            raise HTTPException(405, "创建失败1")
     except Exception as e:
         print(e)
-        raise HTTPException(405, "创建失败")
+        raise HTTPException(405, "创建失败2")
 
 
 @blogRouter.delete("/delete-blog", summary="删除博客")
@@ -63,9 +67,9 @@ async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
 
 # 异步上传
 @blogRouter.post("/upload/img", summary="上传图片")
-async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...), ):
-    # if phone is False:
-    #     raise HTTPException(401, "当前登录状态已过期")
+async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...)):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
     if not (img.content_type.startswith("image/")):
         raise HTTPException(400, "文件格式不符合要求")
 
@@ -73,11 +77,11 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
     cur_md5 = await file_md5(img)
     existed = await query_by_hash(cur_md5, db)
     if existed:
+        print("-----存在")
         return {"errno": 0, "data": {"url": existed, "alt": f"reks-{existed}"}}
     try:
         # 根据手机号获取用户的id
-        rid = 1
-        # rid = await query_user_rid(phone, db)
+        rid = await query_user_rid(phone, db)
         href = await pre_link(rid, img)
         # 先行落库
         await insert_into_gallery(rid, href, cur_md5, db)

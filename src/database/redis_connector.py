@@ -7,6 +7,7 @@ import redis.asyncio as redis
 from src.config import settings
 
 
+
 @lru_cache
 def get_redis() -> redis.Redis:
     return redis.from_url(

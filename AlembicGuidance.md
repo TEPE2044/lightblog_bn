@@ -122,6 +122,11 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
+### 重置id对策
+- 依旧把模型注释掉，生成迁移文件，执行迁移
+- 取消注释模型，生成迁移文件，执行迁移
+- 完成重置
+
 ### 字段缺失对策
 - 千万不要手动删除数据库字段！
 - 千万不要在手动修改后执行alembic stamp head

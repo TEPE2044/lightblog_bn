@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     pgdb_password: str
     rd_url: str
     rd_local_url: str
+    rd_train_url: str
     outdated_session: int
     aliyun_key: str
     aliyun_secret: str
