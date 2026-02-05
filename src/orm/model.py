@@ -381,3 +381,19 @@ class PlayList(Base):
     # 关系
     creator: Mapped[User] = relationship(back_populates='playlists')
     tracks: Mapped[list[PlaylistMusic]] = relationship(back_populates='playlist', cascade='all, delete-orphan')
+
+
+class Blog_Music(Base):
+    __tablename__ = "blogs_music"
+    blog_id: Mapped[int] = mapped_column(
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    music_id: Mapped[int] = mapped_column(
+        ForeignKey("music.id", ondelete="RESTRICT"),
+        primary_key=True
+    )
+    sort_order: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

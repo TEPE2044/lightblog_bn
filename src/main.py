@@ -36,7 +36,6 @@ app.include_router(v1)
 app.openapi = custom_openapi(app)
 
 
-
 # MainRouter
 @app.get("/", tags=["根路由"])
 async def root():
