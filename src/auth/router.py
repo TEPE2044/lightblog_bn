@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Query, Body
 from sqlalchemy import update, func
 from fastapi.responses import HTMLResponse
 
-from src.auth import ans
+from src.auth import server_ans
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
@@ -135,8 +135,8 @@ async def set_email_safety(rd: rd_dependency, db: db_dependency, request: Reques
     reks_id = await query_user_rid(phone, db)
     tc = await create_temp_code(rd, email)
     print("---1")
-    # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'
-    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'  # 测试专用
+    rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'
+    # rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'  # 测试专用
     is_send = await send_html_mail(email, rlink)
     if is_send is True:
         return {"status": 200, "msg": "验证邮件发送成功"}
@@ -159,7 +159,7 @@ async def email_check(rd: rd_dependency, db: db_dependency,
         if is_email_set is True:
             await rd.delete(f"temp{token}")
             print("邮箱校验成功")
-            return HTMLResponse(content=ans, status_code=200)
+            return HTMLResponse(content=server_ans, status_code=200)
         else:
             raise HTTPException(status_code=400, detail="邮箱设置失败！")
     except Exception as e:
