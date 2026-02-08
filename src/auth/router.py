@@ -135,7 +135,7 @@ async def set_email_safety(rd: rd_dependency, db: db_dependency, request: Reques
     reks_id = await query_user_rid(phone, db)
     tc = await create_temp_code(rd, email)
     print("---1")
-    # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}'
+    # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'
     rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'  # 测试专用
     is_send = await send_html_mail(email, rlink)
     if is_send is True:
