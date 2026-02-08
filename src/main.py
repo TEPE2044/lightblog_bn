@@ -1,21 +1,23 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi.responses import JSONResponse
 import fastapi_cdn_host
-from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
-from strawberry import Schema
-from strawberry.fastapi import GraphQLRouter
 
 from src import custom_openapi
 from src.auth.router import authRouter
 from src.blog.router import blogRouter
+from src.deps import limiter
 from src.search.scalar import searchRouter
 from src.subscribe.scalar import subscribeRouter
 from src.user.router import userRouter
 
 app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs", redoc_url="/api/v1/redoc",
               version="0.1.0")
+
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://dev.rekindlers.top"],
@@ -23,9 +25,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    raise HTTPException(
+        status_code=429,
+        detail={"msg": "请求已超过限制次数"}
+    )
+
+
 fastapi_cdn_host.patch_docs(app)
-# TODO slowapi
 # API Version 1.0.0
+
 v1 = APIRouter(prefix="/api/v1")
 v1.include_router(subscribeRouter)
 v1.include_router(searchRouter)

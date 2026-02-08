@@ -78,7 +78,7 @@ class User(Base):
         Enum(StatusEnum),
         default=StatusEnum.active,
         nullable=False,
-        comment="0正常 1危险 2封禁"
+        comment="0正常 1危险 2封禁 3注销"
     )
 
     created_at: Mapped[datetime] = mapped_column(
