@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import Depends, Request
 from jose import jwt
 from sqlalchemy import select
@@ -53,7 +53,14 @@ async def query_user(phone: str, db: dependency):
     return row
 
 
-async def query_user_rid(phone: str, db: dependency):
-    stmt = select(User.reks_id).where(User.phone == phone)
-    row = (await db.execute(stmt)).scalar_one_or_none()
-    return row
+async def query_user_rid(phone: str, db: dependency) -> Optional[int]:
+    try:
+        stmt = select(User.reks_id).where(User.phone == phone)
+        print("---3")
+        row = await db.execute(stmt)
+        print("---4")
+        res = row.scalar_one_or_none()
+        print("---5")
+        return res
+    except Exception as e:
+        print(e)

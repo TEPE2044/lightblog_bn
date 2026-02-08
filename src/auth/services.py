@@ -290,3 +290,23 @@ async def send_html_mail(target: str, rlink: str) -> bool:
     except smtplib.SMTPException as e:
         print("发送失败：", e)
         return False
+
+
+async def set_email(email: str, reks_id: int, db: db_dependency) -> bool:
+    stmt = update(User).values(email=email).where(User.reks_id == reks_id)
+    try:
+        res = await db.execute(stmt)
+        if res.rowcount == 0:
+            await db.rollback()
+            return False
+
+        await db.commit()
+        return True
+    except Exception as e:
+        print(e)
+        await db.rollback()
+        return False
+
+
+async def change_phone(new_phone, old_phone, db: db_dependency) -> bool:
+    pass

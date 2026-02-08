@@ -1,22 +1,20 @@
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, Query, Body
+from sqlalchemy import update, func
+from fastapi.responses import HTMLResponse
 
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from fastapi import APIRouter, HTTPException, Request, Query, Depends
-from sqlalchemy import select, update
-
+from src.auth import ans
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
-    hash_password, store_hashed_password, login_out
+    hash_password, store_hashed_password, login_out, change_phone, set_email
 from src.database import db_dependency, rd_dependency
+from src.deps import limiter
 from src.orm.model import User
-from src.user.services import query_user, auth_current_user, auth_phone
+from src.user.services import auth_phone, query_user_rid
 from src.auth.services import send_html_mail
-from src.utils.jwt_client import create_access_token, create_reks_code, create_all_tokens, create_temp_code
+from src.utils.jwt_client import create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
-limiter = Limiter(key_func=get_remote_address)
 
 
 @authRouter.post("/login-by-account", summary="账号登录")
@@ -48,6 +46,7 @@ async def send_sms_code(front: SMSFormData):
             print(sms_result)
             return {"status": "200", "msg": "验证码发送成功"}
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=404, detail="验证码错误")
 
 
@@ -102,7 +101,7 @@ async def logout(rd: rd_dependency, request: Request):
 # 设置密码
 @authRouter.post("/set-password-safety", summary="设置账号密码")
 @limiter.limit("1/month")  # 想要用limiter，需要显式定义request
-async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone, request: Request):
+async def set_password_safety(db: db_dependency, phone: auth_phone, request: Request, psw: str = Body(..., embed=True)):
     # 密码至少8位，上限30位
     # 包含大小写字母，数字，特殊字符
     # 检验令牌，并且从令牌中获取手机号
@@ -128,44 +127,41 @@ async def set_password_safety(psw: str, db: db_dependency, phone: auth_phone, re
 
 # 设置邮箱
 @authRouter.post("/set-email-safety", summary="设置邮箱")
-@limiter.limit("1/month")  # 想要用limiter，需要显式定义request
-async def set_email_safety(email: str, rd: rd_dependency, request: Request):
-    tc = await create_temp_code(rd, email)
-    # rlink = f'https://dev.rekindlers.top?token={tc}'
-    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
-    is_send = await send_html_mail(email, rlink)
-    if is_send is not True:
-        raise HTTPException(status_code=500, detail="发送邮件失败")
-
-
-@authRouter.post("/reset-pn", summary="邮箱重置手机号")
 @limiter.limit("5/month")  # 想要用limiter，需要显式定义request
-async def reset_pn(email: str, phone: str, reset_phone: str, rd: rd_dependency, request: Request):
-    # TODO:检验旧手机号是否在库，
-    # TODO:检验新手机号是否正规手机号
-    #
+async def set_email_safety(rd: rd_dependency, db: db_dependency, request: Request, phone: auth_phone,
+                           email: str = Body(..., embed=True)):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登录已失效,请重新登录")
+    reks_id = await query_user_rid(phone, db)
     tc = await create_temp_code(rd, email)
-    # rlink = f'https://dev.rekindlers.top?token={tc}'
-    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}'  # 测试专用
+    print("---1")
+    # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}'
+    rlink = f'http://localhost:12404/api/v1/auth/verify-email?token={tc}&reks_id={reks_id}'  # 测试专用
     is_send = await send_html_mail(email, rlink)
-    if is_send is not True:
+    if is_send is True:
+        return {"status": 200, "msg": "验证邮件发送成功"}
+    else:
         raise HTTPException(status_code=500, detail="发送邮件失败")
 
-
-# TODO:重置手机号
 
 # 校验邮箱
 # 用途1：设置密码
 
 @authRouter.get("/verify-email", summary="验证邮箱")
-async def email_check(rd: rd_dependency, token: str = Query(..., min_length=20, description="邮箱临时令牌")):
+async def email_check(rd: rd_dependency, db: db_dependency,
+                      token: str = Query(..., min_length=20, description="邮箱临时令牌")
+                      , reks_id: int = Query(..., description="用户id")):
     try:
         email = await rd.get(f"temp{token}")
         if email is None:
             raise HTTPException(status_code=404, detail="令牌无效或已过期")
-        await rd.delete(f"temp{token}")
-        print("邮箱校验成功")
-        return {'msg': "邮箱绑定成功"}
+        is_email_set = await set_email(email, reks_id, db)
+        if is_email_set is True:
+            await rd.delete(f"temp{token}")
+            print("邮箱校验成功")
+            return HTMLResponse(content=ans, status_code=200)
+        else:
+            raise HTTPException(status_code=400, detail="邮箱设置失败！")
     except Exception as e:
         print(e)
         raise HTTPException(400, "流程出错，请联系管理员！")
@@ -173,19 +169,23 @@ async def email_check(rd: rd_dependency, token: str = Query(..., min_length=20, 
 
 # TODO:更换手机号
 @authRouter.post("/change-phone-safety", summary="换绑手机号")
-async def change_phone_safety(phone: str, new_phone: str):
-    pass
+@limiter.limit("1/month")
+async def change_phone_safety(phone: auth_phone, new_phone: str, db: db_dependency, request: Request):
+    if phone is False:
+        raise HTTPException(401, "登录已失效,请重新登录")
+
+    is_change = await change_phone(new_phone, phone, db)
 
 
+# 待测试
 @authRouter.post("/destroy-account", summary="注销账号")
 async def destroy_account(phone: auth_phone, db: db_dependency):
     if phone is False:
-        raise HTTPException(status_code=401, detail="登录已失效,请重新登录")
-
-    stmt = select(User).where(User.phone == phone)
-    man = await db.execute(stmt)
-    res = man.scalar_one_or_none()
-    if res is None:
-        raise HTTPException(status_code=400,detail="你是谁，怎么进来的")
-
-    stmt2 = update(User).values('banned')
+        raise HTTPException(401, "登录已失效,请重新登录")
+    stmt = update(User).values(status='deleted', deleted_at=func.now()).where(User.phone == phone)
+    try:
+        await db.execute(stmt)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(400, f"注销失败:{e}")
