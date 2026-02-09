@@ -9,8 +9,10 @@ from src import custom_openapi
 from src.auth.router import authRouter
 from src.blog.router import blogRouter
 from src.deps import limiter
-from src.search.scalar import searchRouter
-from src.subscribe.scalar import subscribeRouter
+from src.search.resolvers import searchRouter
+
+from src.subscribe.resolvers import subscribeRouter
+from src.user.resolvers import gql_userRouter
 from src.user.router import userRouter
 
 app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs", redoc_url="/api/v1/redoc",
@@ -39,10 +41,11 @@ fastapi_cdn_host.patch_docs(app)
 # API Version 1.0.0
 
 v1 = APIRouter(prefix="/api/v1")
+v1.include_router(userRouter)
+v1.include_router(gql_userRouter)
 v1.include_router(subscribeRouter)
 v1.include_router(searchRouter)
 v1.include_router(authRouter)
-v1.include_router(userRouter)
 v1.include_router(blogRouter)
 app.include_router(v1)
 app.openapi = custom_openapi(app)

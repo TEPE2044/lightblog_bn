@@ -1,10 +1,11 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
 from src.blog.schemas import BlogData
 from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, file_md5, query_by_hash
 from src.database import db_dependency
+from src.deps import limiter
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import img_upload, pre_link
 from src.utils.xss_clean import clean_content
@@ -41,13 +42,13 @@ async def get_blog_by_id(id: int, db: db_dependency):
 # 使用PostgreSQL的upsert方法，插入与更新一体化
 # 关联一个user_id
 @blogRouter.post("/my-blog/new", summary="创建博客")
-async def upload_blog(data: BlogData, db: db_dependency, phone: auth_phone, blog_id: Optional[int] = 0):
+@limiter.limit("15/month")
+async def upload_blog(request: Request,data: BlogData, db: db_dependency, phone: auth_phone, blog_id: Optional[int] = 0):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
     try:
         rid = await query_user_rid(phone, db)
         # XSS清洗 插入数据库
-        # TODO:限制发布次数
         data.content = await clean_content(data.content)
         is_insert = await upsert_blog(data, rid, blog_id or 0, db)
         if is_insert is True:

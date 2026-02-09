@@ -47,10 +47,18 @@ auth_phone = Annotated[str | bool, Depends(auth_current_user)]
 # first 查多列
 # one_or_none 想确保最多一条，否则算异常
 async def query_user(phone: str, db: dependency):
-    stmt = select(User.username, User.avatar, User.gender, User.type).where(User.phone == phone)
+    stmt = select(User.username, User.avatar, User.gender, User.type, User.signature).where(User.phone == phone)
     # warning db操作是异步,first只是同步方法
     row = (await db.execute(stmt)).first()
-    return row
+    username, avatar, gender, typez, sign = row
+    userInfo = {
+        "username": username,
+        "avatar": avatar,
+        "gender": gender,
+        "type": typez,
+        "sign": sign
+    }
+    return userInfo
 
 
 async def query_user_rid(phone: str, db: dependency) -> Optional[int]:

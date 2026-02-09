@@ -18,13 +18,13 @@ async def get_user_profile(db: db_dependency, phone: auth_phone):
     if phone is False:
         raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
 
-    username, avatar, gender, type = await query_user(phone, db)
-    # sex字段优化成gender
+    username, avatar, gender, type, sign = await query_user(phone, db)
     userInfo = {
         "username": username,
         "avatar": avatar,
         "gender": gender,
-        "type": type
+        "type": type,
+        "sign": sign
     }
     return {"status": "200", "msg": "用户信息获取成功", "data": userInfo}
 
@@ -57,4 +57,3 @@ async def post_user_profile():
 @userRouter.patch("/profile", summary="更新用户个人信息")
 async def update_user_profile():
     return {"status": "200", "msg": "用户信息更新成功", "data": {}}
-
