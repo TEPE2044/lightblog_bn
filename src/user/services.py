@@ -2,11 +2,11 @@ from functools import lru_cache
 from typing import Annotated, Optional
 from fastapi import Depends, Request
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import dependency
 
 from src.config import settings
-from src.database import rd_dependency
+from src.database import rd_dependency, db_dependency
 
 from src.orm.model import User
 from src.utils.aes_client import decrypt_phone
@@ -47,17 +47,12 @@ auth_phone = Annotated[str | bool, Depends(auth_current_user)]
 # first 查多列
 # one_or_none 想确保最多一条，否则算异常
 async def query_user(phone: str, db: dependency):
-    stmt = select(User.username, User.avatar, User.gender, User.type, User.signature).where(User.phone == phone)
+    stmt = select(User.username, User.avatar, User.gender, User.type, User.signature).where(
+        User.phone == phone)
     # warning db操作是异步,first只是同步方法
     row = (await db.execute(stmt)).first()
-    username, avatar, gender, typez, sign = row
-    userInfo = {
-        "username": username,
-        "avatar": avatar,
-        "gender": gender,
-        "type": typez,
-        "sign": sign
-    }
+    print(row)
+    userInfo = row
     return userInfo
 
 
@@ -72,3 +67,39 @@ async def query_user_rid(phone: str, db: dependency) -> Optional[int]:
         return res
     except Exception as e:
         print(e)
+
+
+async def update_user_profile(data, db: db_dependency, phone: str) -> bool:
+    try:
+        # 查询用户是否存在
+        stmt = select(User).where(User.phone == phone)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user is None:
+            print("用户不存在")
+            return False
+
+        if data.avatarURL is None:
+            print("--- 没有头像")
+            stmt = update(User).where(User.phone == phone).values(
+                username=data.username,
+                gender=data.gender,
+                signature=data.signature)
+            await db.execute(stmt)
+            await db.commit()
+            return True
+        else:
+            print("--- 有头像")
+            stmt = update(User).where(User.phone == phone).values(
+                username=data.username,
+                gender=data.gender,
+                avatar=data.avatarURL,
+                signature=data.signature)
+            await db.execute(stmt)
+            await db.commit()
+            return True
+
+    except Exception as e:
+        print(e)
+        await db.rollback()
+        return False

@@ -43,11 +43,12 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency)
             insert_blog = prt(Blog).values(title=data.title, content=data.content,
                                            rid=rid).returning(Blog)
         else:
-            insert_blog = (prt(Blog).values(id=blog_id, title=data.title, content=data.content, rid=rid)
-                           .on_conflict_do_update(index_elements=["id"]
-                                                  , set_={
-                    'title': data.title, 'content': data.content, 'updated_at': func.now()})
-                           .returning(Blog))
+            insert_blog = (
+                prt(Blog).values(id=blog_id, title=data.title, content=data.content, rid=rid)
+                .on_conflict_do_update(index_elements=["id"]
+                                       , set_={
+                        'title': data.title, 'content': data.content, 'updated_at': func.now()})
+                .returning(Blog))
         blog = (await db.execute(insert_blog)).scalar_one()
         blog_id = blog.id
         print(blog_id)
@@ -118,3 +119,4 @@ async def file_md5(upload_file: UploadFile) -> str:
 async def query_by_hash(md5: str, db: db_dependency) -> str | None:
     stmt = select(Gallery.url).filter(Gallery.md5 == md5).limit(1)
     return (await db.execute(stmt)).scalar_one_or_none()
+

@@ -22,17 +22,15 @@ myObs = OBSUtils()
 myBucket = "projeck"
 
 
-async def pre_link(rid: int, img: UploadFile) -> str:
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+# 时间戳应保持一致
+async def pre_link(rid: int, img: UploadFile, timestamp) -> str:
     img_key = f"RImg/{rid}/{timestamp}_img{Path(img.filename).suffix}"
     iurl = f"https://{myBucket}.obs.cn-south-1.myhuaweicloud.com/{img_key}"
     print(iurl)
     return iurl
 
 
-async def img_upload(rid: int, img: UploadFile) -> str | None:
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
+async def img_upload(rid: int, img: UploadFile, timestamp) -> str | None:
     img_key = f"RImg/{rid}/{timestamp}_img{Path(img.filename).suffix}"
     # print('endpoint:', repr(settings.obs_endpoint), type(settings.obs_endpoint))
     print("---------")

@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
 from src.blog.schemas import BlogData
-from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, file_md5, query_by_hash
+from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, \
+    file_md5, query_by_hash
 from src.database import db_dependency
 from src.deps import limiter
 from src.user.services import auth_phone, query_user_rid
@@ -43,7 +45,8 @@ async def get_blog_by_id(id: int, db: db_dependency):
 # 关联一个user_id
 @blogRouter.post("/my-blog/new", summary="创建博客")
 @limiter.limit("15/month")
-async def upload_blog(request: Request,data: BlogData, db: db_dependency, phone: auth_phone, blog_id: Optional[int] = 0):
+async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone,
+                      blog_id: Optional[int] = 0):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
     try:
@@ -75,6 +78,7 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
         raise HTTPException(400, "文件格式不符合要求")
 
     # 先解哈希然后找相同哈希
+    # bug:先行返回的链接可能与上传后的链接存在时间差异，导致命名差异
     cur_md5 = await file_md5(img)
     existed = await query_by_hash(cur_md5, db)
     if existed:
@@ -82,13 +86,14 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
         return {"errno": 0, "data": {"url": existed, "alt": f"reks-{existed}"}}
     try:
         # 根据手机号获取用户的id
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         rid = await query_user_rid(phone, db)
-        href = await pre_link(rid, img)
+        href = await pre_link(rid, img, timestamp)
         # 先行落库
         await insert_into_gallery(rid, href, cur_md5, db)
         # 后台异步
         # background.add_task(img_upload, rid, img)
-        await img_upload(rid, img)
+        await img_upload(rid, img, timestamp)
 
         if href is None:
             return {
