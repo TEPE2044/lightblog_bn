@@ -3,8 +3,9 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, ForeignKey, Boolean, \
-    true
+from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, \
+    ForeignKey, Boolean, \
+    true, JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
@@ -230,6 +231,13 @@ class Blog(Base):
         index=True,
         nullable=False,
         comment="用户通用id"
+    )
+
+    cover: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default='["https://picsum.photos/seed/picsum/200/300"]',
+        comment="封面URL集合"
     )
 
     # 外键

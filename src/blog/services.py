@@ -41,10 +41,11 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency)
         # 先插入title和content，并且最终返回插入后的内容blog
         if blog_id == 0:
             insert_blog = prt(Blog).values(title=data.title, content=data.content,
-                                           rid=rid).returning(Blog)
+                                           rid=rid, cover=data.cover).returning(Blog)
         else:
             insert_blog = (
-                prt(Blog).values(id=blog_id, title=data.title, content=data.content, rid=rid)
+                prt(Blog).values(id=blog_id, title=data.title, content=data.content,
+                                 cover=data.cover, rid=rid)
                 .on_conflict_do_update(index_elements=["id"]
                                        , set_={
                         'title': data.title, 'content': data.content, 'updated_at': func.now()})
@@ -119,4 +120,3 @@ async def file_md5(upload_file: UploadFile) -> str:
 async def query_by_hash(md5: str, db: db_dependency) -> str | None:
     stmt = select(Gallery.url).filter(Gallery.md5 == md5).limit(1)
     return (await db.execute(stmt)).scalar_one_or_none()
-
