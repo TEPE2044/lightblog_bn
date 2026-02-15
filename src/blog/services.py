@@ -85,11 +85,21 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency)
 
 
 # TODO:获取一个用户的所有博客，包括草稿箱，可能要进行分页查询
-async def query_user_blogs(rid: int, db: db_dependency) -> list[Blog] | None:
+async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
     try:
-        join_blog = select(Blog).where(Blog.rid == rid).order_by(Blog.updated_at.desc())
-        blogs = (await db.execute(join_blog)).scalars().all()
-        return blogs
+        join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type,Blog.created_at).where(Blog.rid == rid).order_by(Blog.updated_at.desc())
+        blogs = (await db.execute(join_blog)).mappings().all()
+        result = [
+            {
+                "id": blog.id,
+                "cover": blog.cover,
+                "title": blog.title,
+                "type": blog.type,
+                "created_at": blog.created_at
+            }
+            for blog in blogs
+        ]
+        return result
     except Exception as e:
         print(e)
         return None
