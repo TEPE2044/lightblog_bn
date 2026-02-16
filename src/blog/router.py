@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
 from src.blog.schemas import BlogData
 from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, \
-    file_md5, query_by_hash
+    file_md5, query_by_hash, query_daily_blog
 from src.database import db_dependency
 from src.deps import limiter
 from src.user.services import auth_phone, query_user_rid
@@ -35,14 +35,18 @@ async def get_my_blog(phone: auth_phone, db: db_dependency):
         raise HTTPException(404, "获取博客失败")
 
 
+@blogRouter.get("/dailyblog", summary="每日推荐")
+async def get_daily_blog(db: db_dependency):
+    return await query_daily_blog(db)
+
+
 # 读取有效博客不需要鉴权
 @blogRouter.get("/{id}", summary="根据id获取博客")
 async def get_blog_by_id(id: int, db: db_dependency):
     return await get_blogs(id, db)
 
 
-# 使用PostgreSQL的upsert方法，插入与更新一体化
-# 关联一个user_id
+# 创建博客
 @blogRouter.post("/my-blog/new", summary="创建博客")
 @limiter.limit("15/month")
 async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone,
@@ -63,13 +67,14 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         raise HTTPException(405, "创建失败2")
 
 
+# TODO:删除博客
 @blogRouter.delete("/delete-blog", summary="删除博客")
-async def delete_blog(phone: auth_phone, db: db_dependency, id: int):
+async def delete_blog(phone: auth_phone, db: db_dependency):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
 
 
-# 异步上传
+# 上传图片
 @blogRouter.post("/upload/img", summary="上传图片")
 async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...)):
     if phone is False:

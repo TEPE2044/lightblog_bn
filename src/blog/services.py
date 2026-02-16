@@ -2,34 +2,36 @@ import hashlib
 from typing import Dict
 
 from fastapi import UploadFile
-from sqlalchemy import select, and_, insert, func
+from sqlalchemy import select, insert, func
+from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
-from src.orm.model import Blog, blogs_tags, Tag, Gallery
+from src.orm.model import Blog, blogs_tags, Tag, Gallery, User
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
 # 获取博客
 async def get_blogs(id: int, db: db_dependency) -> Dict | None:
-    # 满足条件：是发布的、是正常的、有id的
     try:
-        stmt = (select(Blog).where(
-            and_(
-                Blog.type == 'publish',
-                Blog.state == 'normal',
-                Blog.id == id
-            )
-        ))
-        # 只可有一条，但是允许是空的
-        blog = (await db.execute(stmt)).scalar_one_or_none()
-        if not blog:
+        # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
+        # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+        stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id))
+        result = await db.execute(stmt)
+        # 这玩意确实只返回一个，但是它的内容全都在这个对象里！不关scalar或者mappin的事
+        row = result.one_or_none()
+        if row is None:
             return None
-        print(blog.title)
+        print(row)
+        blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
+        # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
+        # blog.tags is a list of Tag objects; return tag names
+        tags = [t.name for t in getattr(blog, 'tags', [])]
         return {
-            "title": blog.title,
             "content": blog.content,
-            "updated_at": blog.updated_at,
-            "type": blog.type
+            "title": blog.title,
+            "tags": tags,
+            "author": author  # 直接从 JOIN 结果拿
         }
     except Exception as e:
         print(e)
@@ -84,10 +86,11 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency)
         return False
 
 
-# TODO:获取一个用户的所有博客，包括草稿箱，可能要进行分页查询
+# TODO:分页查询
 async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
     try:
-        join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type,Blog.created_at).where(Blog.rid == rid).order_by(Blog.updated_at.desc())
+        join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
+            Blog.rid == rid).order_by(Blog.updated_at.desc())
         blogs = (await db.execute(join_blog)).mappings().all()
         result = [
             {
@@ -100,6 +103,28 @@ async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
             for blog in blogs
         ]
         return result
+    except Exception as e:
+        print(e)
+        return None
+
+
+# TODO:每日推荐
+async def query_daily_blog(db: db_dependency) -> list[Dict] | None:
+    try:
+        stmt = (select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at, User.username)
+                .join(User, Blog.rid == User.reks_id).order_by(func.random()).limit(10))
+        blogs = (await db.execute(stmt)).all()
+        return [
+            {
+                "id": id_,  # ← 直接是变量名，清晰
+                "cover": cover,
+                "title": title,
+                "type": type_,
+                "created_at": created_at,
+                "author": username
+            }
+            for id_, cover, title, type_, created_at, username in blogs  # ← 元组解包
+        ]
     except Exception as e:
         print(e)
         return None
