@@ -38,21 +38,26 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
         return None
 
 
-async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency) -> bool:
+# 博客的插入和更新合成一个函数，id为0表示插入，否则更新
+# is_draft=0为草稿，=1为正式博客
+async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
+                      db: db_dependency) -> bool:
     try:
         # 先插入title和content，并且最终返回插入后的内容blog
+        # id为0，新建博客/草稿
         if blog_id == 0:
-            insert_blog = prt(Blog).values(title=data.title, content=data.content,
-                                           rid=rid, cover=data.cover).returning(Blog)
+            stmt = prt(Blog).values(title=data.title, content=data.content,
+                                    rid=rid, cover=data.cover, type=type_).returning(Blog)
+        # 不为0，更新博客/草稿
         else:
-            insert_blog = (
+            stmt = (
                 prt(Blog).values(id=blog_id, title=data.title, content=data.content,
-                                 cover=data.cover, rid=rid)
+                                 cover=data.cover)
                 .on_conflict_do_update(index_elements=["id"]
                                        , set_={
                         'title': data.title, 'content': data.content, 'updated_at': func.now()})
                 .returning(Blog))
-        blog = (await db.execute(insert_blog)).scalar_one()
+        blog = (await db.execute(stmt)).scalar_one()
         blog_id = blog.id
         print(blog_id)
         # 如果有tags，插入tags到Tag表中，tags的格式['apple','egg','pen']
@@ -86,7 +91,7 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, db: db_dependency)
         return False
 
 
-# TODO:分页查询
+# TODO:分页查询、新增一个形参type_，0为草稿，1为正式博客
 async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
     try:
         join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
