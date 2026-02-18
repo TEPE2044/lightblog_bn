@@ -365,7 +365,7 @@ class Music(Base):
         server_default='https://picsum.photos/seed/picsum/200/300',
         comment="封面URL"
     )
-    audio: Mapped[str] = mapped_column(String, nullable=False, comment="音频URL")
+    audio: Mapped[str] = mapped_column(String, nullable=True, comment="音频URL")
     desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
 
 

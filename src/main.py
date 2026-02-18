@@ -13,6 +13,7 @@ from src.search.resolvers import searchRouter
 
 from src.subscribe.resolvers import subscribeRouter
 from src.user.router import userRouter
+from src.music.router import musicRouter
 
 app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs", redoc_url="/api/v1/redoc",
               version="0.1.0")
@@ -45,6 +46,7 @@ v1.include_router(subscribeRouter)
 v1.include_router(searchRouter)
 v1.include_router(authRouter)
 v1.include_router(blogRouter)
+v1.include_router(musicRouter)
 app.include_router(v1)
 app.openapi = custom_openapi(app)
 

@@ -23,9 +23,16 @@ myBucket = "projeck"
 
 
 # 时间戳应保持一致
-async def pre_link(rid: int, img: UploadFile, timestamp) -> str:
+async def pre_img_link(rid: int, img: UploadFile, timestamp) -> str:
     img_key = f"RImg/{rid}/{timestamp}_img{Path(img.filename).suffix}"
     iurl = f"https://{myBucket}.obs.cn-south-1.myhuaweicloud.com/{img_key}"
+    print(iurl)
+    return iurl
+
+
+async def pre_audio_link(rid: int, audio: UploadFile, timestamp) -> str:
+    audio_key = f"RAudio/{rid}/{timestamp}_audio{Path(audio.filename).suffix}"
+    iurl = f"https://{myBucket}.obs.cn-south-1.myhuaweicloud.com/{audio_key}"
     print(iurl)
     return iurl
 

@@ -1,8 +1,11 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class Radio(BaseModel):
-    radio_name: str
-    author: Optional[str]
+class AudioBase(BaseModel):
+    isOriginal: bool = Field(...)
+    name: str = Field(..., max_length=50)
+    desc: Optional[str]
+    coverURL: str
+    audioURL: str

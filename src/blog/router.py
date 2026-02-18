@@ -9,7 +9,7 @@ from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_i
 from src.database import db_dependency
 from src.deps import limiter
 from src.user.services import auth_phone, query_user_rid
-from src.utils.obs_client import img_upload, pre_link
+from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
@@ -172,7 +172,7 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
         # 根据手机号获取用户的id
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         rid = await query_user_rid(phone, db)
-        href = await pre_link(rid, img, timestamp)
+        href = await pre_img_link(rid, img, timestamp)
         # 先行落库
         await insert_into_gallery(rid, href, cur_md5, db)
         # 后台异步
