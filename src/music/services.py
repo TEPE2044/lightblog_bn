@@ -5,17 +5,28 @@ from sqlalchemy import insert, select
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase
-from src.orm.model import Music
+from src.orm.model import Music, User
 from src.utils.obs_client import myBucket, myObs
 
 
-async def get_music(rid: int, db: db_dependency) -> dict:
-    stmt = select(Music).where(Music.rid == rid)
-    row = await db.execute(stmt)
-    res = row.scalars().all()
-    print(res)
-    return res
+async def get_music(rid: int, db: db_dependency) -> list[dict]:
+    stmt = (
+        select(Music, User.username, User.avatar)
+        .join(User, Music.rid == User.reks_id)
+        .where(Music.rid == rid)
+    )
+    result = await db.execute(stmt)
+    rows = result.mappings().all()
 
+    return [
+        {
+            # 自动提取 Music 所有字段（排除 SQLAlchemy 内部属性）
+            **{k: v for k, v in row[Music].__dict__.items() if not k.startswith('_')},
+            "username": row["username"],
+            "avatar": row["avatar"]
+        }
+        for row in rows
+    ]
 
 async def audio_upload(rid: int, audio: UploadFile, timestamp) -> str | None:
     audio_key = f"RAudio/{rid}/{timestamp}_audio{Path(audio.filename).suffix}"
