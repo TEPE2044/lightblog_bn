@@ -5,12 +5,20 @@ from sqlalchemy.dialects.postgresql import insert
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase
-from src.music.services import audio_upload, insert_into_music
+from src.music.services import audio_upload, insert_into_music, get_music
 from src.orm.model import Music
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import pre_audio_link
 
 musicRouter = APIRouter(prefix='/music', tags=['音乐模块'])
+
+
+@musicRouter.get("/my-music", summary="获取音乐")
+async def get_my_music(phone: auth_phone, db: db_dependency):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    return await get_music(rid, db)
 
 
 @musicRouter.post("/my-music/new", summary="上传音乐")

@@ -1,12 +1,20 @@
 from pathlib import Path
 
 from fastapi import UploadFile
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase
 from src.orm.model import Music
 from src.utils.obs_client import myBucket, myObs
+
+
+async def get_music(rid: int, db: db_dependency) -> dict:
+    stmt = select(Music).where(Music.rid == rid)
+    row = await db.execute(stmt)
+    res = row.scalars().all()
+    print(res)
+    return res
 
 
 async def audio_upload(rid: int, audio: UploadFile, timestamp) -> str | None:

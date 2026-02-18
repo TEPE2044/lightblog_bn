@@ -2,10 +2,11 @@ import hashlib
 from typing import Dict
 
 from fastapi import UploadFile
-from sqlalchemy import select, insert, func
+from sqlalchemy import select, insert, func, and_
 from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
+from src.orm import BlogStateEnum
 from src.orm.model import Blog, blogs_tags, Tag, Gallery, User
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
@@ -91,11 +92,11 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
         return False
 
 
-# TODO:分页查询、新增一个形参type_，0为草稿，1为正式博客
-async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
+# TODO:分页查询
+async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -> list[Dict] | None:
     try:
         join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
-            Blog.rid == rid).order_by(Blog.updated_at.desc())
+            and_(Blog.rid == rid, Blog.state == state_)).order_by(Blog.updated_at.desc())
         blogs = (await db.execute(join_blog)).mappings().all()
         result = [
             {
@@ -107,6 +108,7 @@ async def query_user_blogs(rid: int, db: db_dependency) -> list[Dict] | None:
             }
             for blog in blogs
         ]
+        print(result)
         return result
     except Exception as e:
         print(e)

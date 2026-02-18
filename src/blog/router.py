@@ -8,6 +8,7 @@ from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_i
     file_md5, query_by_hash, query_daily_blog
 from src.database import db_dependency
 from src.deps import limiter
+from src.orm import BlogStateEnum
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
@@ -20,14 +21,14 @@ blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 # bug-fix:根目录下首先注册blog/{id}后，任何这个格式都会被要求提供参数
 # TODO:分页查询
 @blogRouter.get("/my-blog", summary="获取当前用户所有博客")
-async def get_my_blog(phone: auth_phone, db: db_dependency):
+async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependency):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
     try:
         rid = await query_user_rid(phone, db)
         if rid is None:
             raise HTTPException(404, "用户不存在")
-        my_blog = await query_user_blogs(rid, db)
+        my_blog = await query_user_blogs(rid, state_, db)
         if my_blog is not None:
             return {"msg": "获取成功", "blogs": my_blog}
     except Exception as e:
