@@ -8,7 +8,7 @@ from src.database import rd_dependency
 from src.utils.aes_client import encrypt_phone
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 60 * 24 * 30 * 3
 
 
 # 加强令牌配置项，应包含:iss，iat,exp,sub
@@ -49,5 +49,5 @@ async def create_all_tokens(phone: str, rd: rd_dependency) -> dict:
 
 async def create_temp_code(rd: rd_dependency, email: str) -> str:
     tc = secrets.token_urlsafe(32)
-    await rd.setex(f"temp{tc}", 300, email)
+    await rd.setex(f"temp{tc}", 600, email)
     return tc

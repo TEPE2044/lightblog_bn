@@ -228,7 +228,7 @@ async def send_html_mail(target: str, rlink: str) -> bool:
                       欢迎来到邮箱校验环节,点击下方按钮即可完成邮箱验证。
                     </p>
                     <p style="color: #999; font-size: 14px">
-                      本次验证将在10分钟后关闭
+                      本次验证将在10分钟后自动关闭
                     </p>
                     <!-- 按钮区 -->
                     <table

@@ -12,7 +12,7 @@ from src.subscribe import BlogSnapshot
 @strawberry.type
 class Query:
     @strawberry.field
-    def test_temp(self) -> str:
+    async def test_temp(self) -> str:
         return 'fuck'
 
 

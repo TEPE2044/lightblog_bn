@@ -3,8 +3,9 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, ForeignKey, Boolean, \
-    true
+from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, \
+    ForeignKey, Boolean, \
+    true, JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
@@ -232,6 +233,13 @@ class Blog(Base):
         comment="用户通用id"
     )
 
+    cover: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default='["https://picsum.photos/seed/picsum/200/300"]',
+        comment="封面URL集合"
+    )
+
     # 外键
     tags: Mapped[List[Tag]] = relationship(
         secondary=blogs_tags,
@@ -357,7 +365,7 @@ class Music(Base):
         server_default='https://picsum.photos/seed/picsum/200/300',
         comment="封面URL"
     )
-    audio: Mapped[str] = mapped_column(String, nullable=False, comment="音频URL")
+    audio: Mapped[str] = mapped_column(String, nullable=True, comment="音频URL")
     desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
 
 
