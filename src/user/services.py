@@ -2,6 +2,7 @@ from functools import lru_cache
 from typing import Annotated, Optional
 from fastapi import Depends, Request
 from jose import jwt
+from redis.asyncio import Redis
 from sqlalchemy import select, update
 from sqlalchemy.orm import dependency
 
@@ -37,6 +38,30 @@ async def auth_current_user(request: Request, rd: rd_dependency) -> bool | str:
     compare_phone = str(phone_in_jwt) == str(phone_in_redis)
     # print(compare_phone, phone_in_jwt, phone_in_redis)
     # 简写：当 compare_phone 为 True 返回 phone_in_jwt，否则返回 False
+    return phone_in_jwt if compare_phone else False
+
+
+async def auth_current_user_from_headers(
+    headers: dict[str, str],
+    rd: Redis,
+) -> bool | str:
+    normalized = {str(k).lower(): v for k, v in headers.items()}
+
+    header_rcode = normalized.get("authorization") or ""
+    if not header_rcode.lower().startswith("bearer "):
+        return False
+    rcode = header_rcode[7:]
+
+    payload = normalized.get("x-payload") or ""
+    try:
+        data = jwt.decode(payload, settings.jwt_secret, algorithms=[ALGORITHM])
+    except Exception:
+        return False
+
+    phone_in_jwt: str = await decrypt_phone(data.get("sub"))
+    phone_in_redis = await rd.get(f"sess:{rcode}")
+
+    compare_phone = str(phone_in_jwt) == str(phone_in_redis)
     return phone_in_jwt if compare_phone else False
 
 
