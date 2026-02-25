@@ -29,6 +29,7 @@ class Subscription:
         if not user:
             raise Exception("UNAUTHORIZED")
 
+        # 确认存在消费组？
         await ensure_group()
 
         consumer_name = f"sub-{uuid.uuid4().hex}"
