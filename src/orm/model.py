@@ -486,6 +486,7 @@ class Contact(Base):
         back_populates="followers",
     )
 
+
 class Conversation(Base):
     __tablename__ = "conversations"
     __table_args__ = (
