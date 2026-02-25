@@ -468,6 +468,12 @@ class Contact(Base):
         comment="更新时间",
     )
 
+    last_read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="关注动态已读游标时间",
+    )
+
     user: Mapped["User"] = relationship(
         "User",
         foreign_keys=[user_id],
@@ -603,6 +609,13 @@ class Message(Base):
         server_default=func.now(),
         nullable=False,
         comment="发送时间",
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=True,
+        comment="软删除时间 NULL=未删除",
     )
 
     conversation: Mapped["Conversation"] = relationship(
