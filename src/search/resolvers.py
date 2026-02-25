@@ -32,5 +32,5 @@ class Query:
         pass
 
 
-search_schema = strawberry.Schema(query=Query)
-searchRouter = GraphQLRouter(search_schema, path="gql/subql")
+search = strawberry.Schema(query=Query)
+searchRouter = GraphQLRouter(search, path="gql/subql")

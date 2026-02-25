@@ -9,6 +9,7 @@ from src import custom_openapi
 from src.auth.router import authRouter
 from src.blog.router import blogRouter
 from src.deps import limiter
+from src.notice.resolvers import noticeRouter
 from src.search.resolvers import searchRouter
 
 from src.subscribe.resolvers import subscribeRouter
@@ -44,6 +45,7 @@ v1 = APIRouter(prefix="/api/v1")
 v1.include_router(userRouter)
 v1.include_router(subscribeRouter)
 v1.include_router(searchRouter)
+v1.include_router(noticeRouter)
 v1.include_router(authRouter)
 v1.include_router(blogRouter)
 v1.include_router(musicRouter)

@@ -75,5 +75,5 @@ class Subscription:
                     yield BlogSnapshot(**data)
 
 
-sub_schema = strawberry.Schema(subscription=Subscription, query=Query)
-subscribeRouter = GraphQLRouter(sub_schema, path="/gql/subql")
+subscribe = strawberry.Schema(subscription=Subscription, query=Query)
+subscribeRouter = GraphQLRouter(subscribe, path="/gql/subql")
