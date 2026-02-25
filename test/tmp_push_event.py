@@ -6,7 +6,9 @@ from src.database.redis_train import rd_stm, STREAM_KEY
 
 RCODE = "uu_PBvXUhH5CLhsanDE1TmlqBrF0jkh8pZxjl461bPw"
 
-
+# 类型：推送数据
+# 适用于测试 消息推送
+# 向对应的rcode投送一条新信息
 async def main() -> None:
     rd = get_redis()
     try:
