@@ -31,7 +31,7 @@ class Subscription:
 
         # 确认存在消费组？
         await ensure_group()
-
+        # 上次读到这
         consumer_name = f"sub-{uuid.uuid4().hex}"
         while True:
             entries = await rd_stm.xreadgroup(
