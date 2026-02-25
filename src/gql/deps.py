@@ -1,19 +1,31 @@
-from typing import Annotated
+from jose import jwt
+from redis.asyncio import Redis
 
-from fastapi import Request, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.database import rd_dependency, get_db
-from src.user.services import auth_current_user
-
-
-async def gql_db(db: AsyncSession = Depends(get_db)) -> AsyncSession:
-    return db
+from src.config import settings
+from src.utils.aes_client import decrypt_phone
+from src.utils.jwt_client import ALGORITHM
 
 
-async def get_context(
-        db: Annotated[AsyncSession, Depends(gql_db)],
-) -> dict:
-    return {
-        "db": db,
-    }
+# gql鉴权
+async def auth_current_user(
+        headers: dict[str, str],
+        rd: Redis,
+) -> bool | str:
+    normalized = {str(k).lower(): v for k, v in headers.items()}
+
+    header_rcode = normalized.get("authorization") or ""
+    if not header_rcode.lower().startswith("bearer "):
+        return False
+    rcode = header_rcode[7:]
+
+    payload = normalized.get("x-payload") or ""
+    try:
+        data = jwt.decode(payload, settings.jwt_secret, algorithms=[ALGORITHM])
+    except Exception:
+        return False
+
+    phone_in_jwt: str = await decrypt_phone(data.get("sub"))
+    phone_in_redis = await rd.get(f"sess:{rcode}")
+
+    compare_phone = str(phone_in_jwt) == str(phone_in_redis)
+    return phone_in_jwt if compare_phone else False

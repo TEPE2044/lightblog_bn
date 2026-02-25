@@ -8,8 +8,8 @@ from strawberry.fastapi import GraphQLRouter
 
 from src.database.redis_connector import get_redis
 from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_stm
+from src.gql.deps import auth_current_user
 from src.subscribe import BlogSnapshot
-from src.user.services import auth_current_user_from_headers
 
 
 def _collect_headers(info: Info) -> dict[str, str]:
@@ -44,7 +44,7 @@ class Subscription:
     async def test_following(self, info: Info) -> AsyncIterator[BlogSnapshot]:
         headers = _collect_headers(info)
         rd = get_redis()
-        me = await auth_current_user_from_headers(headers, rd)
+        me = await auth_current_user(headers, rd)
         if not me:
             raise Exception("UNAUTHORIZED")
 
