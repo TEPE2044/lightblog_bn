@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from typing import AsyncIterator
@@ -25,37 +26,42 @@ class Subscription:
     async def test_following(self, info: Info) -> AsyncIterator[BlogSnapshot]:
         # headers = _collect_headers(info)
         # rd = get_redis()
-        user = await auth_current_user(_collect_headers(info), get_redis())
-        if not user:
+        # AsyncIterator 意思是 这个函数不是一次返回一个值，而是异步地持续产出多个BlogSnapshot
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
             raise Exception("UNAUTHORIZED")
 
-        # 确认存在消费组？
+        # 确认存在消息流
         await ensure_group()
-        # 上次读到这
+        # 为坠落的人类命名（
         consumer_name = f"sub-{uuid.uuid4().hex}"
-        while True:
-            entries = await rd_stm.xreadgroup(
-                groupname=GROUP_NAME,
-                consumername=consumer_name,
-                streams={STREAM_KEY: ">"},
-                count=10,
-                block=5000,
-            )
+        # 订阅场景的长循环
+        try:
+            while True:
+                entries = await rd_stm.xreadgroup(
+                    groupname=GROUP_NAME,
+                    consumername=consumer_name,
+                    streams={STREAM_KEY: ">"},
+                    count=10,
+                    block=5000,
+                )
 
-            if not entries:
-                continue
+                if not entries:
+                    continue
 
-            for _, messages in entries:
-                for msg_id, fields in messages:
-                    receiver_id = str(fields.get("receiver_id") or "")
-                    if receiver_id != str(user):
+                for _, messages in entries:
+                    for msg_id, fields in messages:
+                        receiver_id = str(fields.get("receiver_id") or "")
+                        if receiver_id != str(phone):
+                            await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
+                            continue
+
+                        data = json.loads(fields.get("data") or "{}")
                         await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
-                        continue
-
-                    data = json.loads(fields.get("data") or "{}")
-                    await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
-                    yield BlogSnapshot(**data)
-
+                        yield BlogSnapshot(**data)
+                        # yield：产出一个值并“暂停”，下次还能从暂停点继续执行。
+        except asyncio.CancelledError as e:
+            raise e
 
 subscribe = strawberry.Schema(subscription=Subscription, query=Query)
 subscribeRouter = GraphQLRouter(subscribe, path="/gql/subql")
