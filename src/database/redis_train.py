@@ -14,5 +14,5 @@ async def ensure_group():
     try:
         await rd_stm.xgroup_create(STREAM_KEY, GROUP_NAME, id="0", mkstream=True)
     except Exception:
-        print("消费组存在")
+        print("消费组存在，已建立连接")
         pass

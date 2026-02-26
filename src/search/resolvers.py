@@ -1,9 +1,9 @@
+from typing import Type
+
 import strawberry
 from strawberry.fastapi import GraphQLRouter
 
-from src.search.schemas import BlogResult
-
-# Info是啥
+from src.search.schemas import Blog
 '''
 TODO:
 1.博客搜索
@@ -18,17 +18,15 @@ TODO:
 @strawberry.type
 class Query:
     @strawberry.field
-    async def blog_search(self) -> BlogResult:
-        # TODO:搜索
-        pass
-        return BlogResult
+    async def blog(self) -> Type[Blog]:
+        return Blog
 
     @strawberry.field
-    async def radio_search(self) -> str:
+    async def radio(self) -> str:
         pass
 
     @strawberry.field
-    async def user_search(self) -> str:
+    async def user(self) -> str:
         pass
 
 
