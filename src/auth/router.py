@@ -85,7 +85,7 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
         # 注册新用户
         await register_new_user(front.phone, db)
         tokens = await create_all_tokens(front.phone, rd)
-        return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens}
+        return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens, "sign": "new"}
         # 生成token返回前端
 
 
