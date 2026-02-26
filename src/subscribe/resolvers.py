@@ -10,7 +10,7 @@ from strawberry.fastapi import GraphQLRouter
 from src.database.redis_connector import get_redis
 from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_stm
 from src.gql.deps import auth_current_user, _collect_headers
-from src.subscribe import BlogSnapshot
+from src.subscribe import EventSnapshot
 
 
 @strawberry.type
@@ -23,7 +23,7 @@ class Query:
 @strawberry.type
 class Subscription:
     @strawberry.subscription
-    async def test_following(self, info: Info) -> AsyncIterator[BlogSnapshot]:
+    async def push_event(self, info: Info) -> AsyncIterator[EventSnapshot]:
         # headers = _collect_headers(info)
         # rd = get_redis()
         # AsyncIterator 意思是 这个函数不是一次返回一个值，而是异步地持续产出多个BlogSnapshot
@@ -56,12 +56,18 @@ class Subscription:
                             await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
                             continue
 
-                        data = json.loads(fields.get("data") or "{}")
+                        event_type = str(fields.get("event_type") or "blog.published")
+                        payload = fields.get("data") or "{}"
+
+                        if not isinstance(payload, str):
+                            payload = json.dumps(payload, ensure_ascii=False)
+
                         await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
-                        yield BlogSnapshot(**data)
+                        yield EventSnapshot(eventType=event_type, payload=payload)
                         # yield：产出一个值并“暂停”，下次还能从暂停点继续执行。
         except asyncio.CancelledError as e:
             raise e
+
 
 subscribe = strawberry.Schema(subscription=Subscription, query=Query)
 subscribeRouter = GraphQLRouter(subscribe, path="/gql/subql")

@@ -28,6 +28,7 @@ async def get_music(rid: int, db: db_dependency) -> list[dict]:
         for row in rows
     ]
 
+
 async def audio_upload(rid: int, audio: UploadFile, timestamp) -> str | None:
     audio_key = f"RAudio/{rid}/{timestamp}_audio{Path(audio.filename).suffix}"
     print("---------")
