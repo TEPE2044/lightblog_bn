@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from fastapi import Depends, Request
 from jose import jwt
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import select, update, case, and_, or_
 from sqlalchemy.orm import dependency
 
 from src.config import settings
@@ -108,19 +108,12 @@ async def update_user_profile(data, db: db_dependency, phone: str) -> bool:
 
 async def query_safety_level(db: db_dependency, phone: str) -> str:
     stmt = select(
-        User.hashed_password.isnot(None).label("has_psw"),
-        User.email.isnot(None).label("has_email")
+        case(
+            (and_(User.hashed_password.isnot(None), User.email.isnot(None)), "strong"),
+            (or_(User.hashed_password.isnot(None), User.email.isnot(None)), "fine"),
+            else_="weak"
+        ).label("strength")
     ).where(User.phone == phone)
 
-    row = (await db.execute(stmt)).mappings().first()
-    if row is None:
-        return "weak"
-
-    has_psw, has_email = row["has_psw"], row["has_email"]
-
-    if not has_psw and not has_email:
-        return "weak"
-    elif not has_psw or not has_email:
-        return "fine"
-    else:
-        return "strong"
+    strength = (await db.execute(stmt)).scalar()
+    return strength or "weak"  # 处理 None 的情况
