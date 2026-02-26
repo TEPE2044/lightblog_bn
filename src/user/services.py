@@ -40,6 +40,7 @@ async def auth_current_user(request: Request, rd: rd_dependency) -> bool | str:
     # 简写：当 compare_phone 为 True 返回 phone_in_jwt，否则返回 False
     return phone_in_jwt if compare_phone else False
 
+
 auth_phone = Annotated[str | bool, Depends(auth_current_user)]
 
 
@@ -103,3 +104,23 @@ async def update_user_profile(data, db: db_dependency, phone: str) -> bool:
         print(e)
         await db.rollback()
         return False
+
+
+async def query_safety_level(db: db_dependency, phone: str) -> str:
+    stmt = select(
+        User.hashed_password.isnot(None).label("has_psw"),
+        User.email.isnot(None).label("has_email")
+    ).where(User.phone == phone)
+
+    row = (await db.execute(stmt)).mappings().first()
+    if row is None:
+        return "weak"
+
+    has_psw, has_email = row["has_psw"], row["has_email"]
+
+    if not has_psw and not has_email:
+        return "weak"
+    elif not has_psw or not has_email:
+        return "fine"
+    else:
+        return "strong"
