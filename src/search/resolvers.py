@@ -18,17 +18,17 @@ TODO:
 @strawberry.type
 class Query:
     @strawberry.field
-    async def blog(self) -> Type[Blog]:
-        return Blog
+    async def blog(self) -> str:
+        return "pass1"
 
     @strawberry.field
     async def radio(self) -> str:
-        pass
-
-    @strawberry.field
-    async def user(self) -> str:
-        pass
+        return "pass"
+    #
+    # @strawberry.field
+    # async def user(self) -> str:
+    #     pass
 
 
 search = strawberry.Schema(query=Query)
-searchRouter = GraphQLRouter(search, path="gql/subql")
+searchRouter = GraphQLRouter(search, path="/gql/seaql")

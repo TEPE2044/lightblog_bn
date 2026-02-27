@@ -1,12 +1,17 @@
+from datetime import datetime
+from typing import List
+
 import strawberry
 
 
 @strawberry.type
 class Blog:
-    cover: list[str]
+    id: int
+    cover: str
     title: str
     author: str
-    tags: list[str]
+    type: str
+    created_at: datetime
 
 
 @strawberry.type

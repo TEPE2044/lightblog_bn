@@ -39,9 +39,18 @@ def play_async_yield(numlist: list):
     yield {"Hello": "World"}
 
 
+def play_dynamic_list():
+    num = 1
+    f = [num == 2, "helloworld"]
+    print(type(f))
+    f.append(num == 3)
+    print(f)
+
+
 if __name__ == '__main__':
-    nums = [1, 2, 3, 4, 5]
+    play_dynamic_list()
+    # nums = [1, 2, 3, 4, 5]
     # play_dict()
     # play_hasattr()
-    data = tuple(play_async_yield(nums))
-    print(data)
+    # data = tuple(play_async_yield(nums))
+    # print(data)
