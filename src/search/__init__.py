@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 import strawberry
 
@@ -7,5 +8,5 @@ import strawberry
 class BlogResult:
     title: str
     cover: str
-    tags: list
+    tags: List[str]
     created_at: datetime
