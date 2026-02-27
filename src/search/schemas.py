@@ -1,7 +1,18 @@
-from datetime import datetime
-from typing import List
-
 import strawberry
+
+
+
+@strawberry.input
+class Paging:
+    page: int
+    page_size: int
+
+
+@strawberry.type
+class Author:
+    id: int
+    username: str
+    avatar: str
 
 
 @strawberry.type
@@ -9,9 +20,10 @@ class Blog:
     id: int
     cover: str
     title: str
-    author: str
     type: str
-    created_at: datetime
+    author: Author
+    created_at: str
+
 
 
 @strawberry.type
