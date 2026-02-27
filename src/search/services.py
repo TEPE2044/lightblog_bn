@@ -123,10 +123,8 @@ async def query_blogs_paginated_by_tags(
 
             result = [
                 {
-                    "id": b.id,
+                    **dict(b),
                     "cover": b.cover[0] if b.cover else None,
-                    "title": b.title,
-                    "type": b.type,
                     "created_at": b.created_at.isoformat(),
                     "author": {
                         "id": b.reks_id,
@@ -144,3 +142,21 @@ async def query_blogs_paginated_by_tags(
             await db.rollback()
             return [], 0
 
+
+async def query_user_paginated(who: str, page: int, page_size: int) -> tuple[list[Dict], int]:
+    async with (SessionLocal() as db):
+        offset = (page - 1) * page_size
+
+        try:
+            count_stmt = select(func.count()).where(User.username.ilike(f"%{who}%"))
+            total = (await db.execute(count_stmt)).scalar() or 0
+
+            data_stmt = select(User.username, User.avatar, User.signature, User.gender).where(
+                User.username.ilike(f"%{who}%")).offset(offset).order_by(User.username).limit(page_size)
+            users = (await db.execute(data_stmt)).mappings().all()
+            result = [{**dict(user)}for user in users]
+            return result, total
+        except Exception as e:
+            await db.rollback()
+            print(e)
+            return [], 0
