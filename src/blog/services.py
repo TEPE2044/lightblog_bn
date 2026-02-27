@@ -92,7 +92,7 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
         return False
 
 
-# TODO:分页查询
+# 无分页
 async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -> list[Dict] | None:
     try:
         join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
