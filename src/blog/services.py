@@ -108,7 +108,7 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
             }
             for blog in blogs
         ]
-        print(result)
+        # print(result)
         return result
     except Exception as e:
         print(e)
@@ -142,7 +142,7 @@ async def insert_into_gallery(rid: int, href: str, md5: str, db: db_dependency) 
         Gallery.id)
     row = (await db.execute(stmt)).scalar_one_or_none()
     await db.commit()
-    print(row)
+    # print(row)
     if row is not None:
         return True
     else:
