@@ -60,11 +60,11 @@ async def query_user(phone: str, db: dependency):
 async def query_user_rid(phone: str, db: dependency) -> Optional[int]:
     try:
         stmt = select(User.reks_id).where(User.phone == phone)
-        print("---3")
+        # print("---3")
         row = await db.execute(stmt)
-        print("---4")
+        # print("---4")
         res = row.scalar_one_or_none()
-        print("---5")
+        # print("---5")
         return res
     except Exception as e:
         print(e)
