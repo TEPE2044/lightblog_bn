@@ -2,7 +2,7 @@ from typing import Dict, List
 
 from sqlalchemy import select, func, and_, or_
 from src.database.pg_connector import SessionLocal
-from src.orm.model import Blog, User, blogs_tags, Tag
+from src.orm.model import Blog, User, blogs_tags, Tag, Music
 
 
 # ** premature optimization（过早优化）** 是浪费时间。
@@ -151,10 +151,47 @@ async def query_user_paginated(who: str, page: int, page_size: int) -> tuple[lis
             count_stmt = select(func.count()).where(User.username.ilike(f"%{who}%"))
             total = (await db.execute(count_stmt)).scalar() or 0
 
-            data_stmt = select(User.username, User.avatar, User.signature, User.gender).where(
+            data_stmt = select(User.reks_id, User.username, User.avatar, User.signature).where(
                 User.username.ilike(f"%{who}%")).offset(offset).order_by(User.username).limit(page_size)
             users = (await db.execute(data_stmt)).mappings().all()
-            result = [{**dict(user)}for user in users]
+            result = [{**dict(user)} for user in users]
+            return result, total
+        except Exception as e:
+            await db.rollback()
+            print(e)
+            return [], 0
+
+
+async def query_music_paginated(content: str, page: int, page_size: int):
+    async with (SessionLocal() as db):
+        offset = (page - 1) * page_size
+
+        try:
+            count_stmt = select(func.count()).where(Music.name.ilike(f"%{content}%"))
+            total = (await db.execute(count_stmt)).scalar() or 0
+
+            data_stmt = select(Music.audio,
+                               Music.cover,
+                               Music.created_at,
+                               Music.desc,
+                               Music.id,
+                               Music.name,
+                               Music.original,
+                               Music.rid,
+                               Music.state,
+                               User.username,
+                               User.avatar).join(User, User.reks_id == Music.rid).where(
+                Music.name.ilike(f"%{content}%")).offset(offset).order_by(Music.id).limit(page_size)
+            music = (await db.execute(data_stmt)).mappings().all()
+
+            result = [
+                {
+                    **dict(ms),
+                    "created_at": ms.created_at.isoformat(),
+                }
+                for ms in music
+            ]
+
             return result, total
         except Exception as e:
             await db.rollback()
