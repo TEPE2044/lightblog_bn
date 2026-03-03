@@ -47,6 +47,12 @@ def play_dynamic_list():
     print(f)
 
 
+def cut_diff():
+    # 优雅去重，不丢排序
+    man = list(dict.fromkeys('tags', 'hei'))
+    print(man)
+
+
 if __name__ == '__main__':
     play_dynamic_list()
     # nums = [1, 2, 3, 4, 5]
