@@ -12,3 +12,5 @@ class BlogSnapshot:
 class EventSnapshot:
     eventType: str
     payload: str
+
+

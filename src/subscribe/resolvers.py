@@ -9,6 +9,7 @@ from strawberry.fastapi import GraphQLRouter
 
 from src.database.redis_connector import get_redis
 from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_stm
+from src.gql import HTTPResult
 from src.gql.deps import auth_current_user, _collect_headers
 from src.subscribe import EventSnapshot
 
@@ -18,6 +19,17 @@ class Query:
     @strawberry.field
     async def test_temp(self) -> str:
         return 'fuck'
+
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def follow(self, info: Info) -> HTTPResult:
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
+            raise Exception("UNAUTHORIZED")
+        # TODO:A关注B，建立关系；加入B的频道接收推送
+        return HTTPResult(status=200, msg="订阅成功")
 
 
 @strawberry.type
