@@ -438,20 +438,20 @@ class Contact(Base):
         comment="联系人记录UUID",
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID,
-        ForeignKey("users.id", ondelete="CASCADE"),
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
         index=True,
         nullable=False,
-        comment="关注 UUID",
+        comment="关注者通用ID(reks_id)",
     )
 
-    followed_user_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID,
-        ForeignKey("users.id", ondelete="CASCADE"),
+    followed_user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
         index=True,
         nullable=False,
-        comment="被关注 UUID",
+        comment="被关注者通用ID(reks_id)",
     )
 
     created_at: Mapped[datetime] = mapped_column(
