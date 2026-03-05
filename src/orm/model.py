@@ -366,8 +366,9 @@ class Music(Base):
     )
     state: Mapped[BlogStateEnum] = mapped_column(
         Enum(BlogStateEnum, native_enum=False),
+        default=BlogStateEnum.publish,
         nullable=True,
-        comment="0正常 1已删除 2被封禁"
+        comment="0草稿 1发布 2已删除 3被封禁"
     )
     original: Mapped[bool] = mapped_column(
         Boolean,
