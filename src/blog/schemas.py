@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,7 @@ class BlogData(BaseModel):
     content: str = Field(..., min_length=1)
     cover: List[str] = Field(..., max_length=3)
     tags: List[str] = Field(..., max_length=5)
+    music_id: Optional[int]
 
 
 
