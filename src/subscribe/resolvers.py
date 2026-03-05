@@ -12,6 +12,7 @@ from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_st
 from src.gql import HTTPResult
 from src.gql.deps import auth_current_user, _collect_headers
 from src.subscribe import EventSnapshot
+from src.subscribe.services import insert_follow, remove_follow
 
 
 @strawberry.type
@@ -24,12 +25,33 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def follow(self, info: Info) -> HTTPResult:
+    async def follow(self, info: Info, fid: int) -> HTTPResult:
         phone = await auth_current_user(_collect_headers(info), get_redis())
         if not phone:
-            raise Exception("UNAUTHORIZED")
+            return HTTPResult(status=401, msg="UNAUTHORIZED")
         # TODO:A关注B，建立关系；加入B的频道接收推送
-        return HTTPResult(status=200, msg="订阅成功")
+        try:
+            is_follow = await insert_follow(fid, phone)
+            if is_follow is True:
+                return HTTPResult(status=200, msg="关注成功")
+            else:
+                return HTTPResult(status=403, msg="关注失败")
+        except Exception as e:
+            return HTTPResult(status=403, msg=str(e))
+
+    @strawberry.mutation
+    async def unfollow(self, info: Info, fid: int) -> HTTPResult:
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
+            return HTTPResult(status=401, msg="UNAUTHORIZED")
+
+        try:
+            is_removed = await remove_follow(fid, phone)
+            if is_removed:
+                return HTTPResult(status=200, msg="取消关注成功")
+            return HTTPResult(status=404, msg="未找到关注关系")
+        except Exception as e:
+            return HTTPResult(status=403, msg=str(e))
 
 
 @strawberry.type
@@ -81,5 +103,5 @@ class Subscription:
             raise e
 
 
-subscribe = strawberry.Schema(subscription=Subscription, query=Query)
+subscribe = strawberry.Schema(subscription=Subscription, query=Query, mutation=Mutation)
 subscribeRouter = GraphQLRouter(subscribe, path="/gql/subql")
