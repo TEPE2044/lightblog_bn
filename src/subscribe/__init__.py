@@ -14,3 +14,17 @@ class EventSnapshot:
     payload: str
 
 
+@strawberry.type
+class FollowStatsSnapshot:
+    followingCount: int
+    followerCount: int
+
+
+@strawberry.type
+class FollowUserSnapshot:
+    rid: int
+    username: str
+    avatar: str | None
+    signature: str | None
+
+

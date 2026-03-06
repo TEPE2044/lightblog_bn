@@ -11,15 +11,49 @@ from src.database.redis_connector import get_redis
 from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_stm
 from src.gql import HTTPResult
 from src.gql.deps import auth_current_user, _collect_headers
-from src.subscribe import EventSnapshot
-from src.subscribe.services import insert_follow, remove_follow
+from src.subscribe import EventSnapshot, FollowStatsSnapshot, FollowUserSnapshot
+from src.subscribe.services import (
+    insert_follow,
+    query_follow_stats,
+    query_following_list,
+    remove_follow,
+)
 
 
 @strawberry.type
 class Query:
     @strawberry.field
-    async def test_temp(self) -> str:
-        return 'fuck'
+    async def follow_stats(self, info: Info) -> FollowStatsSnapshot:
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
+            raise Exception("UNAUTHORIZED")
+
+        stats = await query_follow_stats(phone)
+        if stats is None:
+            return FollowStatsSnapshot(followingCount=0, followerCount=0)
+
+        following_count, follower_count = stats
+        return FollowStatsSnapshot(
+            followingCount=following_count,
+            followerCount=follower_count,
+        )
+
+    @strawberry.field
+    async def following_list(self, info: Info) -> list[FollowUserSnapshot]:
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
+            raise Exception("UNAUTHORIZED")
+
+        items = await query_following_list(phone)
+        return [
+            FollowUserSnapshot(
+                rid=item["rid"],
+                username=item["username"],
+                avatar=item["avatar"],
+                signature=item["signature"],
+            )
+            for item in items
+        ]
 
 
 @strawberry.type
