@@ -87,6 +87,7 @@ async def create_music_blog(data: BlogData, rid: int, music_id: int, db: db_depe
         # 确认 music 存在
         row = (await db.execute(select(Music.id).where(Music.id == music_id))).scalar_one_or_none()
         if row is None:
+            print("----")
             await db.rollback()
             return False
 
