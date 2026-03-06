@@ -2,7 +2,8 @@ from functools import lru_cache
 from typing import Annotated, Optional
 from fastapi import Depends, Request
 from jose import jwt
-from sqlalchemy import select, update
+from redis.asyncio import Redis
+from sqlalchemy import select, update, case, and_, or_
 from sqlalchemy.orm import dependency
 
 from src.config import settings
@@ -59,11 +60,11 @@ async def query_user(phone: str, db: dependency):
 async def query_user_rid(phone: str, db: dependency) -> Optional[int]:
     try:
         stmt = select(User.reks_id).where(User.phone == phone)
-        print("---3")
+        # print("---3")
         row = await db.execute(stmt)
-        print("---4")
+        # print("---4")
         res = row.scalar_one_or_none()
-        print("---5")
+        # print("---5")
         return res
     except Exception as e:
         print(e)
@@ -103,3 +104,16 @@ async def update_user_profile(data, db: db_dependency, phone: str) -> bool:
         print(e)
         await db.rollback()
         return False
+
+
+async def query_safety_level(db: db_dependency, phone: str) -> str:
+    stmt = select(
+        case(
+            (and_(User.hashed_password.isnot(None), User.email.isnot(None)), "strong"),
+            (or_(User.hashed_password.isnot(None), User.email.isnot(None)), "fine"),
+            else_="weak"
+        ).label("strength")
+    ).where(User.phone == phone)
+
+    strength = (await db.execute(stmt)).scalar()
+    return strength or "weak"  # 处理 None 的情况

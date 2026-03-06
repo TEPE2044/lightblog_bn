@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
@@ -12,6 +11,7 @@ from src.orm import BlogStateEnum
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
+from src.music.services import create_music_blog
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 
@@ -77,6 +77,29 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
     except Exception as e:
         print(e)
         raise HTTPException(405, "创建失败2")
+
+
+@blogRouter.post("/my-blog/new-mblog")
+@limiter.limit("15/month")
+async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    if data.music_id == 0:
+        raise HTTPException(404,"未上传正确的id")
+    print(data.music_id)
+    try:
+        rid = await query_user_rid(phone, db)
+        # XSS清洗 插入数据库
+        data.content = await clean_content(data.content)
+        # 调用 music 服务创建音乐博客（内部会创建 blog 并关联 music
+        ok = await create_music_blog(data, rid, data.music_id, db)
+        if ok:
+            return {"msg": True}
+        else:
+            raise HTTPException(400, "创建音乐博客失败")
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "创建音乐博客失败")
 
 
 @blogRouter.post("/my-draft/new", summary="创建草稿")

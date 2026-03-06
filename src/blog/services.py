@@ -39,51 +39,70 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
         return None
 
 
-# 博客的插入和更新合成一个函数，id为0表示插入，否则更新
-# is_draft=0为草稿，=1为正式博客
-async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
-                      db: db_dependency) -> bool:
-    try:
-        # 先插入title和content，并且最终返回插入后的内容blog
-        # id为0，新建博客/草稿
-        if blog_id == 0:
-            stmt = prt(Blog).values(title=data.title, content=data.content,
-                                    rid=rid, cover=data.cover, type=type_).returning(Blog)
-        # 不为0，更新博客/草稿
-        else:
-            stmt = (
-                prt(Blog).values(id=blog_id, title=data.title, content=data.content,
-                                 cover=data.cover)
-                .on_conflict_do_update(index_elements=["id"]
-                                       , set_={
-                        'title': data.title, 'content': data.content, 'updated_at': func.now()})
-                .returning(Blog))
-        blog = (await db.execute(stmt)).scalar_one()
-        blog_id = blog.id
-        print(blog_id)
-        # 如果有tags，插入tags到Tag表中，tags的格式['apple','egg','pen']
+async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, type_: int,
+                                     db: db_dependency) -> int:
+    """核心：插入或更新 Blog 行并处理 tags（不提交事务）。
+    返回 blog_id，调用者负责提交或回滚事务。
+    """
+    # is_create 是否新建，判断依据，blog_id是否为0，是->新建，不是->更新
+    is_create = (blog_id == 0)
 
-        insert_tag = prt(Tag).values([{"name": tag} for tag in set(data.tags)]
+    # 插入或 upsert Blog 表并返回 Blog 行
+    if is_create:
+        stmt = prt(Blog).values(
+            title=data.title,
+            content=data.content,
+            rid=rid,
+            cover=data.cover,
+            type=type_
+        ).returning(Blog)
+    else:
+        stmt = (
+            prt(Blog).values(id=blog_id, title=data.title, content=data.content, cover=data.cover)
+            .on_conflict_do_update(
+                index_elements=["id"],
+                set_={
+                    'title': data.title,
+                    'content': data.content,
+                    'updated_at': func.now()
+                }
+            )
+            .returning(Blog)
+        )
+
+    blog = (await db.execute(stmt)).scalar_one()
+    blog_id = blog.id
+
+    # 删除旧的标签关联
+    await db.execute(
+        blogs_tags.delete().where(blogs_tags.c.blog_id == blog_id)
+    )
+
+    # 处理 tags：strip / 过滤 None / 去重并保序 / 最多 5 个
+    raw_tags = data.tags or []
+    tags = list(dict.fromkeys(
+        (str(raw).strip() for raw in raw_tags if raw is not None and str(raw).strip() != "")
+    ))[:5]
+
+    if tags:
+        insert_tag = prt(Tag).values([{"name": tag} for tag in tags]
                                      ).on_conflict_do_update(index_elements=["name"],
                                                              set_={"updated_at": func.now()}
                                                              ).returning(Tag)
-        # insert_tag = prt(Tag).values([{"name": tag} for tag in filter_tags]).returning(Tag)
-        tags = (await db.execute(insert_tag)).all()
-        # 提取成一个列表
-        tag_ids = [t[0].id for t in tags]
-
-        if blog_id != 0:
-            # 删掉原先的标签
-            await db.execute(
-                blogs_tags.delete().where(blogs_tags.c.blog_id == blog_id)
-            )
-
-        # blogs_tags 合成大西瓜
+        tag_rows = (await db.execute(insert_tag)).all()
+        tag_ids = [row[0].id for row in tag_rows]
         bt_collection = [{"blog_id": blog_id, "tag_id": tid} for tid in tag_ids]
-
-        # 如果有bt_collection，写库
         if bt_collection:
             await db.execute(insert(blogs_tags).values(bt_collection))
+
+    return blog_id
+
+
+async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
+                      db: db_dependency) -> bool:
+    """事务包装：调用 core 执行并负责 commit/rollback"""
+    try:
+        _ = await create_or_update_blog_core(data, rid, blog_id, type_, db)
         await db.commit()
         return True
     except Exception as e:
@@ -92,7 +111,7 @@ async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
         return False
 
 
-# TODO:分页查询
+# 无分页
 async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -> list[Dict] | None:
     try:
         join_blog = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
@@ -108,7 +127,7 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
             }
             for blog in blogs
         ]
-        print(result)
+        # print(result)
         return result
     except Exception as e:
         print(e)
@@ -142,7 +161,7 @@ async def insert_into_gallery(rid: int, href: str, md5: str, db: db_dependency) 
         Gallery.id)
     row = (await db.execute(stmt)).scalar_one_or_none()
     await db.commit()
-    print(row)
+    # print(row)
     if row is not None:
         return True
     else:

@@ -3,6 +3,7 @@ from functools import lru_cache
 import redis.asyncio as redis
 
 # 用异步的redis客户端
+# aioredis 已经合并进 redis-py了
 
 from src.config import settings
 

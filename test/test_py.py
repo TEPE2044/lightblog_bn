@@ -1,0 +1,62 @@
+import asyncio
+from typing import AsyncIterator
+
+
+def play_dict():
+    adict = {"book": "man", "type": "read"}
+    bdict = {1: 100, "2": 3000}
+
+    print(f"bdict looks like:{bdict.items()}")
+
+    adict.update({str(k): str(v) for k, v in bdict.items()})
+    print(adict)
+
+    print("----")
+    print("if you dont't need to transformat the type of result, just use")
+    # adict.update({k: v for k, v in bdict.items()}) equals
+    adict.update(bdict)
+    print(adict)
+
+
+def play_hasattr():
+    class Coordinate:
+        x = 10
+        y = -5
+        z = 0
+
+    point1 = Coordinate()
+    print(hasattr(point1, 'x'))
+    print(hasattr(point1, 'y'))
+    print(hasattr(point1, 'z'))
+    print(hasattr(point1, 'no'))
+
+
+# 异步生成器async def不能带值 return
+def play_async_yield(numlist: list):
+    for n in numlist:
+        if n == 3:
+            yield numlist[len(numlist) - n]
+    yield {"Hello": "World"}
+
+
+def play_dynamic_list():
+    num = 1
+    f = [num == 2, "helloworld"]
+    print(type(f))
+    f.append(num == 3)
+    print(f)
+
+
+def cut_diff():
+    # 优雅去重，不丢排序
+    man = list(dict.fromkeys('tags', 'hei'))
+    print(man)
+
+
+if __name__ == '__main__':
+    play_dynamic_list()
+    # nums = [1, 2, 3, 4, 5]
+    # play_dict()
+    # play_hasattr()
+    # data = tuple(play_async_yield(nums))
+    # print(data)

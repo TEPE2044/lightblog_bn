@@ -5,7 +5,7 @@ from typing import List
 
 from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, \
     ForeignKey, Boolean, \
-    true, JSON
+    true, JSON, CheckConstraint, UniqueConstraint, Index, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
@@ -118,6 +118,22 @@ class User(Base):
     )
 
     playlists: Mapped[list["PlayList"]] = relationship(back_populates='creator')
+
+    contacts: Mapped[list["Contact"]] = relationship(
+        "Contact", foreign_keys="Contact.user_id", back_populates="user"
+    )
+    followers: Mapped[list["Contact"]] = relationship(
+        "Contact", foreign_keys="Contact.followed_user_id", back_populates="followed_user"
+    )
+    conversations_as_a: Mapped[list["Conversation"]] = relationship(
+        "Conversation", foreign_keys="Conversation.user_a_id", back_populates="user_a"
+    )
+    conversations_as_b: Mapped[list["Conversation"]] = relationship(
+        "Conversation", foreign_keys="Conversation.user_b_id", back_populates="user_b"
+    )
+    sent_messages: Mapped[list["Message"]] = relationship(
+        "Message", back_populates="sender"
+    )
 
 
 # 关系表无需新建类 - Tag 和 Blog n*n
@@ -350,8 +366,9 @@ class Music(Base):
     )
     state: Mapped[BlogStateEnum] = mapped_column(
         Enum(BlogStateEnum, native_enum=False),
+        default=BlogStateEnum.publish,
         nullable=True,
-        comment="0正常 1已删除 2被封禁"
+        comment="0草稿 1发布 2已删除 3被封禁"
     )
     original: Mapped[bool] = mapped_column(
         Boolean,
@@ -404,4 +421,211 @@ class Blog_Music(Base):
     sort_order: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "followed_user_id", name="uq_contacts_pair"),
+        CheckConstraint("user_id <> followed_user_id", name="ck_contacts_not_self"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        comment="联系人记录UUID",
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="关注者通用ID(reks_id)",
+    )
+
+    followed_user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被关注者通用ID(reks_id)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="关注时间",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间",
+    )
+
+    last_read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="关注动态已读游标时间",
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="contacts",
+    )
+
+    followed_user: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[followed_user_id],
+        back_populates="followers",
+    )
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint("user_a_id <> user_b_id", name="ck_conversations_not_self"),
+        # 防止 A-B 与 B-A 重复会话
+        Index(
+            "uq_conversations_user_pair_norm",
+            text("LEAST(user_a_id, user_b_id)"),
+            text("GREATEST(user_a_id, user_b_id)"),
+            unique=True,
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        comment="会话UUID",
+    )
+
+    user_a_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="会话用户A",
+    )
+
+    user_b_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="会话用户B",
+    )
+
+    last_message: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment="最后一条消息预览",
+    )
+
+    last_message_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=True,
+        comment="最后消息时间",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间",
+    )
+
+    user_a: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[user_a_id],
+        back_populates="conversations_as_a",
+    )
+
+    user_b: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[user_b_id],
+        back_populates="conversations_as_b",
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        Index("ix_messages_conversation_created", "conversation_id", text("created_at DESC")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        comment="消息UUID",
+    )
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="会话UUID",
+    )
+
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="发送者UUID",
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="文本消息内容",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="发送时间",
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=True,
+        comment="软删除时间 NULL=未删除",
+    )
+
+    conversation: Mapped["Conversation"] = relationship(
+        "Conversation",
+        back_populates="messages",
+    )
+
+    sender: Mapped["User"] = relationship(
+        "User",
+        back_populates="sent_messages",
     )

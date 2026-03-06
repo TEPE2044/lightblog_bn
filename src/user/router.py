@@ -5,12 +5,21 @@ from fastapi.security import HTTPBearer, APIKeyHeader
 
 from src.database import db_dependency, rd_dependency
 from src.user.schemas import UserProfile
-from src.user.services import query_user, auth_phone, update_user_profile
+from src.user.services import query_user, auth_phone, update_user_profile, query_safety_level
 
 userRouter = APIRouter(prefix="/user", tags=['用户模块'])
 
 security = HTTPBearer()
 x_payload = APIKeyHeader(name="X-Payload")
+
+
+@userRouter.get("/safety-level", summary="用户安全等级")
+async def get_safety_level(db: db_dependency, phone: auth_phone):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
+
+    level = await query_safety_level(db, phone)
+    return {"status": 200, "level": level}
 
 
 # userCRUD

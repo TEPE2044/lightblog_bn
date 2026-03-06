@@ -4,4 +4,4 @@
 
 ## GraphQL 文件结构
 - resolver 接口层
-- scalar 方法
+- service 业务层
