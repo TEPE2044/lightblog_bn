@@ -1,15 +1,15 @@
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as prt
 
 from src.database.pg_connector import SessionLocal
 from src.orm.model import Contact, User
+from src.user.services import query_user_rid
 
 
 async def insert_follow(fid: int, phone: str) -> bool:
     async with (SessionLocal() as db):
         try:
-            my_stmt = select(User.reks_id).where(User.phone == phone)
-            myid = (await db.execute(my_stmt)).scalar_one_or_none()
+            myid = await query_user_rid(phone, db)
             if myid is None:
                 return False
             if myid == fid:
@@ -42,8 +42,7 @@ async def insert_follow(fid: int, phone: str) -> bool:
 async def remove_follow(fid: int, phone: str) -> bool:
     async with (SessionLocal() as db):
         try:
-            my_stmt = select(User.reks_id).where(User.phone == phone)
-            myid = (await db.execute(my_stmt)).scalar_one_or_none()
+            myid = await query_user_rid(phone, db)
             if myid is None:
                 return False
 
@@ -57,3 +56,41 @@ async def remove_follow(fid: int, phone: str) -> bool:
         except Exception:
             await db.rollback()
             return False
+
+
+async def query_follow_stats(phone: str) -> tuple[int, int] | None:
+    async with (SessionLocal() as db):
+        myid = await query_user_rid(phone, db)
+        if myid is None:
+            return None
+
+        following_stmt = select(func.count()).select_from(Contact).where(Contact.user_id == myid)
+        follower_stmt = select(func.count()).select_from(Contact).where(Contact.followed_user_id == myid)
+
+        following_count = (await db.execute(following_stmt)).scalar_one() or 0
+        follower_count = (await db.execute(follower_stmt)).scalar_one() or 0
+        return int(following_count), int(follower_count)
+
+
+async def query_following_list(phone: str) -> list[dict]:
+    async with (SessionLocal() as db):
+        myid = await query_user_rid(phone, db)
+        if myid is None:
+            return []
+
+        stmt = (
+            select(User.reks_id, User.username, User.avatar, User.signature)
+            .join(Contact, Contact.followed_user_id == User.reks_id)
+            .where(Contact.user_id == myid)
+            .order_by(Contact.created_at.desc())
+        )
+        rows = (await db.execute(stmt)).all()
+        return [
+            {
+                "rid": row.reks_id,
+                "username": row.username,
+                "avatar": row.avatar,
+                "signature": row.signature,
+            }
+            for row in rows
+        ]
