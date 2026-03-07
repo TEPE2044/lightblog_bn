@@ -57,6 +57,18 @@ async def query_user(phone: str, db: dependency):
     return userInfo
 
 
+async def query_user_by_rid(rid: int, db: dependency):
+    stmt = select(
+        User.reks_id,
+        User.username,
+        User.avatar,
+        User.gender,
+        User.type,
+        User.signature,
+    ).where(User.reks_id == rid)
+    return (await db.execute(stmt)).first()
+
+
 async def query_user_rid(phone: str, db: dependency) -> Optional[int]:
     try:
         stmt = select(User.reks_id).where(User.phone == phone)

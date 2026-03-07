@@ -5,7 +5,13 @@ from fastapi.security import HTTPBearer, APIKeyHeader
 
 from src.database import db_dependency, rd_dependency
 from src.user.schemas import UserProfile
-from src.user.services import query_user, auth_phone, update_user_profile, query_safety_level
+from src.user.services import (
+    query_user,
+    query_user_by_rid,
+    auth_phone,
+    update_user_profile,
+    query_safety_level,
+)
 
 userRouter = APIRouter(prefix="/user", tags=['用户模块'])
 
@@ -37,6 +43,24 @@ async def get_user_profile(db: db_dependency, phone: auth_phone):
         "gender": gender,
         "type": type,
         "sign": sign
+    }
+    return {"status": "200", "msg": "用户信息获取成功", "data": userInfo}
+
+
+@userRouter.get("/profile/{rid}", summary="根据用户ID获取公开信息")
+async def get_user_profile_by_rid(rid: int, db: db_dependency):
+    row = await query_user_by_rid(rid, db)
+    if row is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    reks_id, username, avatar, gender, type_, sign = row
+    userInfo = {
+        "reks_id": reks_id,
+        "username": username,
+        "avatar": avatar,
+        "gender": gender,
+        "type": type_,
+        "sign": sign,
     }
     return {"status": "200", "msg": "用户信息获取成功", "data": userInfo}
 
