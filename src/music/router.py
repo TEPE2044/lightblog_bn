@@ -21,6 +21,11 @@ async def get_my_music(phone: auth_phone, db: db_dependency):
     return await get_music(rid, db)
 
 
+@musicRouter.get("/user/{rid}", summary="获取指定用户音乐")
+async def get_user_music(rid: int, db: db_dependency):
+    return await get_music(rid, db)
+
+
 @musicRouter.post("/my-music/new", summary="上传音乐")
 async def upload_new_music(phone: auth_phone, db: db_dependency, data: AudioBase):
     if phone is False:

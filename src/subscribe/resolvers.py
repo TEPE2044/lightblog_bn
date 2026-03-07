@@ -69,7 +69,7 @@ class Mutation:
             if is_follow is True:
                 return HTTPResult(status=200, msg="关注成功")
             else:
-                return HTTPResult(status=403, msg="关注失败")
+                return HTTPResult(status=403, msg="关注失败，无法关注自己")
         except Exception as e:
             return HTTPResult(status=403, msg=str(e))
 

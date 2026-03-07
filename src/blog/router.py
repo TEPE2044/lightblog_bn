@@ -36,6 +36,20 @@ async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependenc
         raise HTTPException(404, "获取博客失败")
 
 
+@blogRouter.get("/user/{rid}", summary="获取指定用户已发布博客")
+async def get_user_blog(rid: int, db: db_dependency):
+    try:
+        user_blog = await query_user_blogs(rid, BlogStateEnum.publish, db)
+        if user_blog is None:
+            raise HTTPException(404, "获取博客失败")
+        return {"msg": "获取成功", "blogs": user_blog}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
 @blogRouter.get("/my-draft", summary="获取当前用户所有草稿")
 async def get_my_draft(phone: auth_phone, db: db_dependency):
     pass
