@@ -134,6 +134,48 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
         return None
 
 
+async def query_user_blogs_cursor(
+    rid: int,
+    state_: BlogStateEnum,
+    cursor: int | None,
+    limit: int,
+    db: db_dependency,
+) -> Dict | None:
+    try:
+        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
+            and_(Blog.rid == rid, Blog.state == state_)
+        )
+        if cursor is not None:
+            stmt = stmt.where(Blog.id < cursor)
+
+        rows = (
+            await db.execute(stmt.order_by(Blog.id.desc()).limit(limit + 1))
+        ).mappings().all()
+
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        items = [
+            {
+                "id": row.id,
+                "cover": row.cover,
+                "title": row.title,
+                "type": row.type,
+                "created_at": row.created_at,
+            }
+            for row in page_rows
+        ]
+
+        next_cursor = items[-1]["id"] if has_more and len(items) > 0 else None
+        return {
+            "items": items,
+            "next_cursor": next_cursor,
+            "has_more": has_more,
+        }
+    except Exception as e:
+        print(e)
+        return None
+
+
 # TODO:每日推荐
 async def query_daily_blog(db: db_dependency) -> list[Dict] | None:
     try:

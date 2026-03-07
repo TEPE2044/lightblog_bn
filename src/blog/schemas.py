@@ -11,5 +11,10 @@ class BlogData(BaseModel):
     music_id: Optional[int]
 
 
+class CursorPageInput(BaseModel):
+    cursor: Optional[int] = None
+    limit: int = Field(default=9, ge=1, le=30)
+
+
 
 

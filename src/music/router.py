@@ -4,8 +4,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy.dialects.postgresql import insert
 
 from src.database import db_dependency
-from src.music.schemas import AudioBase
-from src.music.services import audio_upload, insert_into_music, get_music
+from src.music.schemas import AudioBase, CursorPageInput
+from src.music.services import audio_upload, insert_into_music, get_music, get_music_cursor
 from src.orm.model import Music
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import pre_audio_link
@@ -24,6 +24,11 @@ async def get_my_music(phone: auth_phone, db: db_dependency):
 @musicRouter.get("/user/{rid}", summary="获取指定用户音乐")
 async def get_user_music(rid: int, db: db_dependency):
     return await get_music(rid, db)
+
+
+@musicRouter.post("/user/{rid}/cursor", summary="获取指定用户音乐（游标分页）")
+async def get_user_music_cursor(rid: int, body: CursorPageInput, db: db_dependency):
+    return await get_music_cursor(rid=rid, cursor=body.cursor, limit=body.limit, db=db)
 
 
 @musicRouter.post("/my-music/new", summary="上传音乐")

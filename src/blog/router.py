@@ -2,9 +2,9 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
-from src.blog.schemas import BlogData
+from src.blog.schemas import BlogData, CursorPageInput
 from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, \
-    file_md5, query_by_hash, query_daily_blog
+    file_md5, query_by_hash, query_daily_blog, query_user_blogs_cursor
 from src.database import db_dependency
 from src.deps import limiter
 from src.orm import BlogStateEnum
@@ -43,6 +43,26 @@ async def get_user_blog(rid: int, db: db_dependency):
         if user_blog is None:
             raise HTTPException(404, "获取博客失败")
         return {"msg": "获取成功", "blogs": user_blog}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
+@blogRouter.post("/user/{rid}/cursor", summary="获取指定用户已发布博客（游标分页）")
+async def get_user_blog_cursor(rid: int, body: CursorPageInput, db: db_dependency):
+    try:
+        page = await query_user_blogs_cursor(
+            rid=rid,
+            state_=BlogStateEnum.publish,
+            cursor=body.cursor,
+            limit=body.limit,
+            db=db,
+        )
+        if page is None:
+            raise HTTPException(404, "获取博客失败")
+        return page
     except HTTPException:
         raise
     except Exception as e:

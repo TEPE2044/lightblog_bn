@@ -9,3 +9,8 @@ class AudioBase(BaseModel):
     desc: Optional[str]
     coverURL: str
     audioURL: str
+
+
+class CursorPageInput(BaseModel):
+    cursor: Optional[int] = None
+    limit: int = Field(default=9, ge=1, le=30)
