@@ -72,6 +72,16 @@ async def query_follow_stats(phone: str) -> tuple[int, int] | None:
         return int(following_count), int(follower_count)
 
 
+async def query_follow_stats_by_rid(rid: int) -> tuple[int, int]:
+    async with (SessionLocal() as db):
+        following_stmt = select(func.count()).select_from(Contact).where(Contact.user_id == rid)
+        follower_stmt = select(func.count()).select_from(Contact).where(Contact.followed_user_id == rid)
+
+        following_count = (await db.execute(following_stmt)).scalar_one() or 0
+        follower_count = (await db.execute(follower_stmt)).scalar_one() or 0
+        return int(following_count), int(follower_count)
+
+
 async def query_following_list(phone: str) -> list[dict]:
     async with (SessionLocal() as db):
         myid = await query_user_rid(phone, db)
@@ -82,6 +92,30 @@ async def query_following_list(phone: str) -> list[dict]:
             select(User.reks_id, User.username, User.avatar, User.signature)
             .join(Contact, Contact.followed_user_id == User.reks_id)
             .where(Contact.user_id == myid)
+            .order_by(Contact.created_at.desc())
+        )
+        rows = (await db.execute(stmt)).all()
+        return [
+            {
+                "rid": row.reks_id,
+                "username": row.username,
+                "avatar": row.avatar,
+                "signature": row.signature,
+            }
+            for row in rows
+        ]
+
+
+async def query_follower_list(phone: str) -> list[dict]:
+    async with (SessionLocal() as db):
+        myid = await query_user_rid(phone, db)
+        if myid is None:
+            return []
+
+        stmt = (
+            select(User.reks_id, User.username, User.avatar, User.signature)
+            .join(Contact, Contact.user_id == User.reks_id)
+            .where(Contact.followed_user_id == myid)
             .order_by(Contact.created_at.desc())
         )
         rows = (await db.execute(stmt)).all()

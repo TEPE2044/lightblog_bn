@@ -36,8 +36,9 @@ async def get_user_profile(db: db_dependency, phone: auth_phone):
     if phone is False:
         raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
 
-    username, avatar, gender, type, sign = await query_user(phone, db)
+    reks_id, username, avatar, gender, type, sign = await query_user(phone, db)
     userInfo = {
+        "reks_id": reks_id,
         "username": username,
         "avatar": avatar,
         "gender": gender,

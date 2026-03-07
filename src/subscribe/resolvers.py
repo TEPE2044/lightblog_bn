@@ -14,7 +14,9 @@ from src.gql.deps import auth_current_user, _collect_headers
 from src.subscribe import EventSnapshot, FollowStatsSnapshot, FollowUserSnapshot
 from src.subscribe.services import (
     insert_follow,
+    query_follower_list,
     query_follow_stats,
+    query_follow_stats_by_rid,
     query_following_list,
     remove_follow,
 )
@@ -54,6 +56,31 @@ class Query:
             )
             for item in items
         ]
+
+    @strawberry.field
+    async def follower_list(self, info: Info) -> list[FollowUserSnapshot]:
+        phone = await auth_current_user(_collect_headers(info), get_redis())
+        if not phone:
+            raise Exception("UNAUTHORIZED")
+
+        items = await query_follower_list(phone)
+        return [
+            FollowUserSnapshot(
+                rid=item["rid"],
+                username=item["username"],
+                avatar=item["avatar"],
+                signature=item["signature"],
+            )
+            for item in items
+        ]
+
+    @strawberry.field
+    async def follow_stats_by_rid(self, rid: int) -> FollowStatsSnapshot:
+        following_count, follower_count = await query_follow_stats_by_rid(rid)
+        return FollowStatsSnapshot(
+            followingCount=following_count,
+            followerCount=follower_count,
+        )
 
 
 @strawberry.type
