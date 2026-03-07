@@ -21,6 +21,16 @@ async def get_my_music(phone: auth_phone, db: db_dependency):
     return await get_music(rid, db)
 
 
+@musicRouter.post("/my-music/cursor", summary="获取当前用户音乐（游标分页）")
+async def get_my_music_cursor(phone: auth_phone, body: CursorPageInput, db: db_dependency):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
+    return await get_music_cursor(rid=rid, cursor=body.cursor, limit=body.limit, db=db)
+
+
 @musicRouter.get("/user/{rid}", summary="获取指定用户音乐")
 async def get_user_music(rid: int, db: db_dependency):
     return await get_music(rid, db)

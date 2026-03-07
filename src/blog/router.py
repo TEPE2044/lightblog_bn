@@ -36,6 +36,32 @@ async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependenc
         raise HTTPException(404, "获取博客失败")
 
 
+@blogRouter.post("/my-blog/cursor", summary="获取当前用户博客（游标分页）")
+async def get_my_blog_cursor(phone: auth_phone, body: CursorPageInput, db: db_dependency):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    try:
+        rid = await query_user_rid(phone, db)
+        if rid is None:
+            raise HTTPException(404, "用户不存在")
+
+        page = await query_user_blogs_cursor(
+            rid=rid,
+            state_=BlogStateEnum.publish,
+            cursor=body.cursor,
+            limit=body.limit,
+            db=db,
+        )
+        if page is None:
+            raise HTTPException(404, "获取博客失败")
+        return page
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
 @blogRouter.get("/user/{rid}", summary="获取指定用户已发布博客")
 async def get_user_blog(rid: int, db: db_dependency):
     try:
