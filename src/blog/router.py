@@ -139,7 +139,7 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/my-blog/new-mblog")
+@blogRouter.post("/my-blog/new-mblog",summary="创建音乐博客")
 @limiter.limit("15/month")
 async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
     if phone is False:
