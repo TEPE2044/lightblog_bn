@@ -19,7 +19,6 @@ blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 # 博客CRUD
 
 # bug-fix:根目录下首先注册blog/{id}后，任何这个格式都会被要求提供参数
-# TODO:分页查询
 @blogRouter.get("/my-blog", summary="获取当前用户所有博客")
 async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependency):
     if phone is False:

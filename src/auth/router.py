@@ -167,6 +167,16 @@ async def email_check(rd: rd_dependency, db: db_dependency,
         raise HTTPException(400, "流程出错，请联系管理员！")
 
 
+# TODO:找回密码
+# 本站目前仅支持通过邮箱找回密码
+# 参数需要：旧手机号（检查格式，查询 if no->end if yes->邮箱），邮箱（检查格式，查询 if no->end if yes->发送邮件），新手机号（检查格式，查询if ）
+# 流程1：没设置邮箱->end
+# 流程2：有设置邮箱->向邮箱发送一封HTML邮件->校验成功->重置成功
+@authRouter.post("/find-back", summary="手机号已无法使用")
+async def find_back():
+    pass
+
+
 # TODO:更换手机号
 @authRouter.post("/change-phone-safety", summary="换绑手机号")
 @limiter.limit("1/month")
