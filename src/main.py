@@ -9,6 +9,7 @@ from src import custom_openapi
 from src.auth.router import authRouter
 from src.blog.router import blogRouter
 from src.deps import limiter
+from src.fav.router import favRouter
 from src.notice.resolvers import noticeRouter
 from src.search.resolvers import searchRouter
 
@@ -49,6 +50,7 @@ v1.include_router(noticeRouter, tags=['公告模块'])
 v1.include_router(authRouter)
 v1.include_router(blogRouter)
 v1.include_router(musicRouter)
+v1.include_router(favRouter)
 app.include_router(v1)
 app.openapi = custom_openapi(app)
 
