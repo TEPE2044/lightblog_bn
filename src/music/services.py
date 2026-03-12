@@ -16,7 +16,7 @@ async def get_music(rid: int, db: db_dependency) -> list[dict]:
     stmt = (
         select(Music, User.username, User.avatar)
         .join(User, Music.rid == User.reks_id)
-        .where(Music.rid == rid)
+        .where(Music.rid == rid, Music.state == 'publish')
     )
     result = await db.execute(stmt)
     rows = result.mappings().all()
@@ -36,7 +36,7 @@ async def get_music_cursor(rid: int, cursor: int | None, limit: int, db: db_depe
     stmt = (
         select(Music, User.username, User.avatar)
         .join(User, Music.rid == User.reks_id)
-        .where(Music.rid == rid)
+        .where(Music.rid == rid, Music.state == 'publish')
     )
     if cursor is not None:
         stmt = stmt.where(Music.id < cursor)
@@ -95,7 +95,7 @@ async def insert_into_music(data: AudioBase, db: db_dependency, rid: int) -> boo
         cover=data.coverURL,
         desc=data.desc,
         audio=data.audioURL,
-        state=0
+        state=1
     ).returning(Music.id)
     try:
         res = await db.execute(stmt)
