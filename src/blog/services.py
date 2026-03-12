@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
 from src.orm import BlogStateEnum
-from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Music
+from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Music, BlogLike
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
@@ -234,6 +234,51 @@ async def query_daily_blog(db: db_dependency) -> list[Dict] | None:
                 "author": username
             }
             for id_, cover, title, type_, created_at, username in blogs  # ← 元组解包
+        ]
+    except Exception as e:
+        print(e)
+        return None
+
+
+async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] | None:
+    try:
+        like_subq = (
+            select(
+                BlogLike.blog_id.label("blog_id"),
+                func.count(BlogLike.id).label("like_count"),
+            )
+            .group_by(BlogLike.blog_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Blog.id,
+                Blog.cover,
+                Blog.title,
+                Blog.type,
+                Blog.created_at,
+                func.coalesce(like_subq.c.like_count, 0).label("like_count"),
+            )
+            .outerjoin(like_subq, like_subq.c.blog_id == Blog.id)
+            .where(Blog.state == BlogStateEnum.publish)
+            .order_by(func.coalesce(like_subq.c.like_count, 0).desc(), Blog.created_at.desc())
+            .limit(limit)
+        )
+        rows = (await db.execute(stmt)).mappings().all()
+        blog_ids = [int(row.id) for row in rows]
+        music_map = await _query_music_meta_by_blog_ids(blog_ids, db)
+        return [
+            {
+                "id": row.id,
+                "cover": row.cover,
+                "title": row.title,
+                "type": row.type,
+                "created_at": row.created_at,
+                "like_count": int(row.like_count or 0),
+                "music": music_map.get(int(row.id)),
+            }
+            for row in rows
         ]
     except Exception as e:
         print(e)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 
 from src.blog.schemas import BlogData, CursorPageInput
 from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, \
-    file_md5, query_by_hash, query_daily_blog, query_user_blogs_cursor
+    file_md5, query_by_hash, query_daily_blog, query_hot_blog_by_likes, query_user_blogs_cursor
 from src.database import db_dependency
 from src.deps import limiter
 from src.orm import BlogStateEnum
@@ -103,6 +103,15 @@ async def get_my_draft(phone: auth_phone, db: db_dependency):
 @blogRouter.get("/dailyblog", summary="每日推荐")
 async def get_daily_blog(db: db_dependency):
     return await query_daily_blog(db)
+
+
+@blogRouter.get("/hot", summary="热门推荐（按点赞数排序）")
+async def get_hot_blog(db: db_dependency, limit: int = 10):
+    safe_limit = max(1, min(limit, 50))
+    rows = await query_hot_blog_by_likes(safe_limit, db)
+    if rows is None:
+        raise HTTPException(404, "获取热门博客失败")
+    return {"msg": "获取成功", "blogs": rows}
 
 
 # 读取有效博客不需要鉴权
