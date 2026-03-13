@@ -87,6 +87,7 @@ async def query_favorite_status_map(target_ids: list[int], target_type: Favorite
 
     rows = (await db.execute(stmt)).scalars().all()
     existed_ids = {int(item) for item in rows}
+    #  return {int(target_id): (int(target_id) in existed_ids) for target_id in target_ids}
     return {int(target_id): int(target_id) in existed_ids for target_id in target_ids}
 
 
