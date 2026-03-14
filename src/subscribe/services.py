@@ -1,7 +1,10 @@
+import json
+
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as prt
 
 from src.database.pg_connector import SessionLocal
+from src.database.redis_train import STREAM_KEY, rd_stm
 from src.orm.model import Contact, User
 from src.user.services import query_user_rid
 
@@ -128,3 +131,40 @@ async def query_follower_list(phone: str) -> list[dict]:
             }
             for row in rows
         ]
+
+
+async def publish_event(receiver_id: int, event_type: str, payload: dict | str) -> str | None:
+    """写入 Redis Stream 事件。"""
+    try:
+        payload_text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+        return await rd_stm.xadd(
+            STREAM_KEY,
+            {
+                "receiver_id": str(receiver_id),
+                "event_type": event_type,
+                "data": payload_text,
+            },
+            maxlen=20000,
+            approximate=True,
+        )
+    except Exception as e:
+        print(f"publish_event failed: {e}")
+        return None
+
+
+async def publish_event_to_followers(author_id: int, event_type: str, payload: dict | str) -> int:
+    """向 author_id 的全部关注者推送事件，返回推送成功条数。"""
+    async with (SessionLocal() as db):
+        try:
+            stmt = select(Contact.user_id).where(Contact.followed_user_id == author_id)
+            follower_ids = (await db.execute(stmt)).scalars().all()
+
+            success = 0
+            for follower_id in follower_ids:
+                msg_id = await publish_event(int(follower_id), event_type, payload)
+                if msg_id is not None:
+                    success += 1
+            return success
+        except Exception as e:
+            print(f"publish_event_to_followers failed: {e}")
+            return 0

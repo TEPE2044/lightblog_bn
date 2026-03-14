@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from typing import AsyncIterator
 
 import strawberry
@@ -8,10 +7,12 @@ from strawberry import Info
 from strawberry.fastapi import GraphQLRouter
 
 from src.database.redis_connector import get_redis
-from src.database.redis_train import GROUP_NAME, STREAM_KEY, ensure_group, rd_stm
+from src.database.redis_train import STREAM_KEY, rd_stm
+from src.database.pg_connector import SessionLocal
 from src.gql import HTTPResult
 from src.gql.deps import auth_current_user, _collect_headers
 from src.subscribe import EventSnapshot, FollowStatsSnapshot, FollowUserSnapshot
+from src.user.services import query_user_rid
 from src.subscribe.services import (
     insert_follow,
     query_follower_list,
@@ -126,17 +127,18 @@ class Subscription:
         if not phone:
             raise Exception("UNAUTHORIZED")
 
-        # 确认存在消息流
-        await ensure_group()
-        # 为坠落的人类命名（
-        consumer_name = f"sub-{uuid.uuid4().hex}"
+        async with SessionLocal() as db:
+            rid = await query_user_rid(phone, db)
+        if rid is None:
+            raise Exception("UNAUTHORIZED")
+
+        # 每个 websocket 连接维持独立游标，避免不同用户抢占并 ack 他人消息
+        last_id = "$"
         # 订阅场景的长循环
         try:
             while True:
-                entries = await rd_stm.xreadgroup(
-                    groupname=GROUP_NAME,
-                    consumername=consumer_name,
-                    streams={STREAM_KEY: ">"},
+                entries = await rd_stm.xread(
+                    streams={STREAM_KEY: last_id},
                     count=10,
                     block=5000,
                 )
@@ -146,9 +148,9 @@ class Subscription:
 
                 for _, messages in entries:
                     for msg_id, fields in messages:
+                        last_id = msg_id
                         receiver_id = str(fields.get("receiver_id") or "")
-                        if receiver_id != str(phone):
-                            await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
+                        if receiver_id != str(rid):
                             continue
 
                         event_type = str(fields.get("event_type") or "blog.published")
@@ -157,7 +159,6 @@ class Subscription:
                         if not isinstance(payload, str):
                             payload = json.dumps(payload, ensure_ascii=False)
 
-                        await rd_stm.xack(STREAM_KEY, GROUP_NAME, msg_id)
                         yield EventSnapshot(eventType=event_type, payload=payload)
                         # yield：产出一个值并“暂停”，下次还能从暂停点继续执行。
         except asyncio.CancelledError as e:
