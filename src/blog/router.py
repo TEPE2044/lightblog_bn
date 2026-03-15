@@ -1,17 +1,30 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
+from sqlalchemy import select
 
-from src.blog.schemas import BlogData
-from src.blog.services import get_blogs, upsert_blog, query_user_blogs, insert_into_gallery, \
-    file_md5, query_by_hash, query_daily_blog
+from src.blog.schemas import BlogData, CursorPageInput
+from src.blog.services import (
+    get_blogs,
+    upsert_blog,
+    query_user_blogs,
+    insert_into_gallery,
+    file_md5,
+    query_by_hash,
+    query_daily_blog,
+    query_hot_blog_by_likes,
+    query_user_blogs_cursor,
+    query_hot_blog_cursor,
+)
 from src.database import db_dependency
 from src.deps import limiter
 from src.orm import BlogStateEnum
+from src.orm.model import User
 from src.user.services import auth_phone, query_user_rid
 from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
 from src.music.services import create_music_blog
+from src.subscribe.services import publish_event_to_followers
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 
@@ -19,7 +32,6 @@ blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
 # 博客CRUD
 
 # bug-fix:根目录下首先注册blog/{id}后，任何这个格式都会被要求提供参数
-# TODO:分页查询
 @blogRouter.get("/my-blog", summary="获取当前用户所有博客")
 async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependency):
     if phone is False:
@@ -36,6 +48,66 @@ async def get_my_blog(phone: auth_phone, state_: BlogStateEnum, db: db_dependenc
         raise HTTPException(404, "获取博客失败")
 
 
+@blogRouter.post("/my-blog/cursor", summary="获取当前用户博客（游标分页）")
+async def get_my_blog_cursor(phone: auth_phone, body: CursorPageInput, db: db_dependency):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    try:
+        rid = await query_user_rid(phone, db)
+        if rid is None:
+            raise HTTPException(404, "用户不存在")
+
+        page = await query_user_blogs_cursor(
+            rid=rid,
+            state_=BlogStateEnum.publish,
+            cursor=body.cursor,
+            limit=body.limit,
+            db=db,
+        )
+        if page is None:
+            raise HTTPException(404, "获取博客失败")
+        return page
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
+@blogRouter.get("/user/{rid}", summary="获取指定用户已发布博客")
+async def get_user_blog(rid: int, db: db_dependency):
+    try:
+        user_blog = await query_user_blogs(rid, BlogStateEnum.publish, db)
+        if user_blog is None:
+            raise HTTPException(404, "获取博客失败")
+        return {"msg": "获取成功", "blogs": user_blog}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
+@blogRouter.post("/user/{rid}/cursor", summary="获取指定用户已发布博客（游标分页）")
+async def get_user_blog_cursor(rid: int, body: CursorPageInput, db: db_dependency):
+    try:
+        page = await query_user_blogs_cursor(
+            rid=rid,
+            state_=BlogStateEnum.publish,
+            cursor=body.cursor,
+            limit=body.limit,
+            db=db,
+        )
+        if page is None:
+            raise HTTPException(404, "获取博客失败")
+        return page
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取博客失败")
+
+
 @blogRouter.get("/my-draft", summary="获取当前用户所有草稿")
 async def get_my_draft(phone: auth_phone, db: db_dependency):
     pass
@@ -44,6 +116,22 @@ async def get_my_draft(phone: auth_phone, db: db_dependency):
 @blogRouter.get("/dailyblog", summary="每日推荐")
 async def get_daily_blog(db: db_dependency):
     return await query_daily_blog(db)
+
+
+@blogRouter.get("/hot", summary="热门推荐（按点赞数排序）")
+async def get_hot_blog(db: db_dependency, m_limit: int):
+    rows = await query_hot_blog_by_likes(m_limit, db)
+    if rows is None:
+        raise HTTPException(404, "获取热门博客失败")
+    return {"msg": "获取成功", "blogs": rows}
+
+
+@blogRouter.post("/hot/cursor", summary="全站热门内容（游标分页）")
+async def get_hot_blog_cursor_page(body: CursorPageInput, db: db_dependency):
+    page = await query_hot_blog_cursor(cursor=body.cursor, limit=body.limit, db=db)
+    if page is None:
+        raise HTTPException(404, "获取热门博客失败")
+    return page
 
 
 # 读取有效博客不需要鉴权
@@ -67,10 +155,22 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         raise HTTPException(401, "当前登录状态已过期")
     try:
         rid = await query_user_rid(phone, db)
+        author_name = (
+            await db.execute(select(User.username).where(User.reks_id == rid))).scalar_one_or_none()
         # XSS清洗 插入数据库
         data.content = await clean_content(data.content)
         is_insert = await upsert_blog(data, rid, 0, 1, db)
         if is_insert is True:
+            await publish_event_to_followers(
+                author_id=rid,
+                event_type="following.blog.published",
+                payload={
+                    "authorId": rid,
+                    "authorName": author_name or f"用户{rid}",
+                    "title": data.title,
+                    "kind": "blog",
+                },
+            )
             return {"msg": is_insert}
         else:
             raise HTTPException(405, "创建失败1")
@@ -79,21 +179,34 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/my-blog/new-mblog")
+@blogRouter.post("/my-blog/new-mblog", summary="创建音乐博客")
 @limiter.limit("15/month")
 async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
     if data.music_id == 0:
-        raise HTTPException(404,"未上传正确的id")
+        raise HTTPException(404, "未上传正确的id")
     print(data.music_id)
     try:
         rid = await query_user_rid(phone, db)
+        author_name = (
+            await db.execute(select(User.username).where(User.reks_id == rid))).scalar_one_or_none()
         # XSS清洗 插入数据库
         data.content = await clean_content(data.content)
         # 调用 music 服务创建音乐博客（内部会创建 blog 并关联 music
         ok = await create_music_blog(data, rid, data.music_id, db)
         if ok:
+            await publish_event_to_followers(
+                author_id=rid,
+                event_type="following.music_blog.published",
+                payload={
+                    "authorId": rid,
+                    "authorName": author_name or f"用户{rid}",
+                    "title": data.title,
+                    "kind": "music-blog",
+                    "musicId": data.music_id,
+                },
+            )
             return {"msg": True}
         else:
             raise HTTPException(400, "创建音乐博客失败")

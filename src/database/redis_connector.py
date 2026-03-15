@@ -19,8 +19,7 @@ def get_redis() -> redis.Redis:
 
 
 async def get_redis_conn():
-    conn = get_redis()
-    try:
-        yield conn
-    finally:
-        await conn.close()
+    # get_redis returns a shared client backed by a pool.
+    # Do not close it per request, otherwise concurrent requests will
+    # repeatedly tear down the same client and trigger connection errors.
+    yield get_redis()

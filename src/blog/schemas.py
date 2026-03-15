@@ -8,7 +8,12 @@ class BlogData(BaseModel):
     content: str = Field(..., min_length=1)
     cover: List[str] = Field(..., max_length=3)
     tags: List[str] = Field(..., max_length=5)
-    music_id: Optional[int]
+    music_id: Optional[int] = None
+
+
+class CursorPageInput(BaseModel):
+    cursor: Optional[int] = None
+    limit: int = Field(default=9, ge=1, le=30)
 
 
 

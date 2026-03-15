@@ -134,6 +134,15 @@ class User(Base):
     sent_messages: Mapped[list["Message"]] = relationship(
         "Message", back_populates="sender"
     )
+    blog_likes: Mapped[list["BlogLike"]] = relationship(
+        "BlogLike", back_populates="user"
+    )
+    blog_favorites: Mapped[list["BlogFavorite"]] = relationship(
+        "BlogFavorite", back_populates="user"
+    )
+    music_favorites: Mapped[list["MusicFavorite"]] = relationship(
+        "MusicFavorite", back_populates="user"
+    )
 
 
 # 关系表无需新建类 - Tag 和 Blog n*n
@@ -261,6 +270,12 @@ class Blog(Base):
         secondary=blogs_tags,
         back_populates="blogs"
     )
+    likes: Mapped[list["BlogLike"]] = relationship(
+        "BlogLike", back_populates="blog", cascade="all, delete-orphan"
+    )
+    favorites: Mapped[list["BlogFavorite"]] = relationship(
+        "BlogFavorite", back_populates="blog", cascade="all, delete-orphan"
+    )
 
 
 class Gallery(Base):
@@ -384,6 +399,9 @@ class Music(Base):
     )
     audio: Mapped[str] = mapped_column(String, nullable=True, comment="音频URL")
     desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
+    favorites: Mapped[list["MusicFavorite"]] = relationship(
+        "MusicFavorite", back_populates="music", cascade="all, delete-orphan"
+    )
 
 
 class PlayList(Base):
@@ -421,6 +439,159 @@ class Blog_Music(Base):
     sort_order: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class BlogLike(Base):
+    __tablename__ = "blog_likes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "blog_id", name="uq_blog_likes_user_blog"),
+        Index("ix_blog_likes_blog_created", "blog_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="点赞记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="点赞用户通用id"
+    )
+
+    blog_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被点赞博客id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="点赞时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="blog_likes",
+    )
+
+    blog: Mapped["Blog"] = relationship(
+        "Blog",
+        back_populates="likes",
+    )
+
+
+class BlogFavorite(Base):
+    __tablename__ = "blog_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "blog_id", name="uq_blog_favorites_user_blog"),
+        Index("ix_blog_favorites_blog_created", "blog_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="博客收藏记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="收藏用户通用id"
+    )
+
+    blog_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被收藏博客id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="收藏时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="blog_favorites",
+    )
+
+    blog: Mapped["Blog"] = relationship(
+        "Blog",
+        back_populates="favorites",
+    )
+
+
+class MusicFavorite(Base):
+    __tablename__ = "music_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "music_id", name="uq_music_favorites_user_music"),
+        Index("ix_music_favorites_music_created", "music_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="音乐收藏记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="收藏用户通用id"
+    )
+
+    music_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("music.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被收藏音乐id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="收藏时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="music_favorites",
+    )
+
+    music: Mapped["Music"] = relationship(
+        "Music",
+        back_populates="favorites",
     )
 
 
