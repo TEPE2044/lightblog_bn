@@ -23,6 +23,10 @@ from src.subscribe.services import (
 )
 
 
+def _user_stream_cursor_key(rid: int) -> str:
+    return f"reksab:subscribe:stream_cursor:{rid}"
+
+
 @strawberry.type
 class Query:
     @strawberry.field
@@ -132,8 +136,17 @@ class Subscription:
         if rid is None:
             raise Exception("UNAUTHORIZED")
 
-        # 每个 websocket 连接维持独立游标，避免不同用户抢占并 ack 他人消息
-        last_id = "$"
+        # 游标与 Stream 放在同一个 Redis（rd_stm）中，避免跨实例导致状态不一致。
+        rd = rd_stm
+        cursor_key = _user_stream_cursor_key(int(rid))
+
+        # 从 Redis 恢复该用户上次游标；若不存在则从保留窗口起点补读。
+        last_id = await rd.get(cursor_key)
+        if isinstance(last_id, bytes):
+            last_id = last_id.decode("utf-8", errors="ignore")
+        if not isinstance(last_id, str) or "-" not in last_id:
+            last_id = "0-0"
+
         # 订阅场景的长循环
         try:
             while True:
@@ -149,6 +162,9 @@ class Subscription:
                 for _, messages in entries:
                     for msg_id, fields in messages:
                         last_id = msg_id
+                        # 持久化游标，保证离线重连后可从断点继续读取。
+                        await rd.set(cursor_key, last_id)
+
                         receiver_id = str(fields.get("receiver_id") or "")
                         if receiver_id != str(rid):
                             continue
