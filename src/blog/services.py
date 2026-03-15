@@ -285,6 +285,75 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
         return None
 
 
+async def query_hot_blog_cursor(
+    cursor: int | None,
+    limit: int,
+    db: db_dependency,
+) -> Dict | None:
+    try:
+        like_subq = (
+            select(
+                BlogLike.blog_id.label("blog_id"),
+                func.count(BlogLike.id).label("like_count"),
+            )
+            .group_by(BlogLike.blog_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Blog.id,
+                Blog.cover,
+                Blog.title,
+                Blog.type,
+                Blog.created_at,
+                func.coalesce(like_subq.c.like_count, 0).label("like_count"),
+            )
+            .outerjoin(like_subq, like_subq.c.blog_id == Blog.id)
+            .where(Blog.state == BlogStateEnum.publish)
+        )
+
+        if cursor is not None:
+            stmt = stmt.where(Blog.id < cursor)
+
+        rows = (
+            await db.execute(
+                stmt.order_by(
+                    func.coalesce(like_subq.c.like_count, 0).desc(),
+                    Blog.id.desc(),
+                ).limit(limit + 1)
+            )
+        ).mappings().all()
+
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        blog_ids = [int(row.id) for row in page_rows]
+        music_map = await _query_music_meta_by_blog_ids(blog_ids, db)
+
+        items = [
+            {
+                "id": row.id,
+                "cover": row.cover,
+                "title": row.title,
+                "type": row.type,
+                "created_at": row.created_at,
+                "like_count": int(row.like_count or 0),
+                "music": music_map.get(int(row.id)),
+            }
+            for row in page_rows
+        ]
+
+        next_cursor = items[-1]["id"] if has_more and len(items) > 0 else None
+        return {
+            "items": items,
+            "next_cursor": next_cursor,
+            "has_more": has_more,
+        }
+    except Exception as e:
+        print(e)
+        return None
+
+
 async def insert_into_gallery(rid: int, href: str, md5: str, db: db_dependency) -> bool:
     stmt = insert(Gallery).values(rid=rid, url=href, alt=f"reks-{href}", md5=md5).returning(
         Gallery.id)
