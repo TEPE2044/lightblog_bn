@@ -92,7 +92,7 @@ async def query_favorite_status_map(target_ids: list[int], target_type: Favorite
 
 # 收藏
 async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
-                       rid: int, favorited: bool, db: db_dependency) -> dict | None | False:
+                       rid: int, favorited: bool, db: db_dependency) -> dict | None:
     try:
         # 如果目标类型是blog
         if target_type == FavoriteTargetEnum.blog:
@@ -144,7 +144,7 @@ async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
 
 
 # 点赞
-async def set_like(blog_id: int, rid: int, liked: bool, db: db_dependency) -> dict | None | False:
+async def set_like(blog_id: int, rid: int, liked: bool, db: db_dependency) -> dict | None:
     try:
         if not await _ensure_blog_exists(blog_id, db):
             return None
