@@ -90,30 +90,35 @@ async def query_favorite_status_map(target_ids: list[int], target_type: Favorite
     #  return {int(target_id): (int(target_id) in existed_ids) for target_id in target_ids}
     return {int(target_id): int(target_id) in existed_ids for target_id in target_ids}
 
-
+# 收藏
 async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
-                       rid: int, favorited: bool, db: db_dependency) -> dict | None:
+                       rid: int, favorited: bool, db: db_dependency) -> dict | None | False:
     try:
+        # 如果目标类型是blog
         if target_type == FavoriteTargetEnum.blog:
+            # 未发布的博客和不存在的博客，直接return None
             if not await _ensure_blog_exists(target_id, db):
                 return None
-
+            # 在表中找对应的选项
             existed_stmt = select(BlogFavorite.id).where(
                 BlogFavorite.user_id == rid,
                 BlogFavorite.blog_id == target_id,
             )
             existed = (await db.execute(existed_stmt)).scalar_one_or_none()
+            # 如果前端状态是true，证明新点赞的
             if favorited:
+                # 没有这条点赞记录，插入新记录
                 if existed is None:
                     await db.execute(insert(BlogFavorite).values(user_id=rid, blog_id=target_id))
                 await db.commit()
                 return {"msg": "收藏成功", "is_favorited": True}
-
+            # 已经点过赞了，删掉
             if existed is not None:
                 await db.execute(delete(BlogFavorite).where(BlogFavorite.id == existed))
             await db.commit()
             return {"msg": "取消收藏成功", "is_favorited": False}
 
+        # 同理可得，目标类型是music
         if not await _ensure_music_exists(target_id, db):
             return None
 
@@ -138,7 +143,8 @@ async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
         return False
 
 
-async def set_like(blog_id: int, rid: int, liked: bool, db: db_dependency) -> dict | None:
+# 点赞
+async def set_like(blog_id: int, rid: int, liked: bool, db: db_dependency) -> dict | None | False:
     try:
         if not await _ensure_blog_exists(blog_id, db):
             return None

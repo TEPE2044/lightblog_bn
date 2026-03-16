@@ -29,6 +29,7 @@ def _user_stream_cursor_key(rid: int) -> str:
 
 @strawberry.type
 class Query:
+    # 获取用户的关注数量与粉丝数量
     @strawberry.field
     async def follow_stats(self, info: Info) -> FollowStatsSnapshot:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -45,6 +46,7 @@ class Query:
             followerCount=follower_count,
         )
 
+    # 获取关注列表
     @strawberry.field
     async def following_list(self, info: Info) -> list[FollowUserSnapshot]:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -62,6 +64,7 @@ class Query:
             for item in items
         ]
 
+    # 获取粉丝列表
     @strawberry.field
     async def follower_list(self, info: Info) -> list[FollowUserSnapshot]:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -79,6 +82,7 @@ class Query:
             for item in items
         ]
 
+    # 根据id获取他/她的粉丝列表
     @strawberry.field
     async def follow_stats_by_rid(self, rid: int) -> FollowStatsSnapshot:
         following_count, follower_count = await query_follow_stats_by_rid(rid)
@@ -90,6 +94,7 @@ class Query:
 
 @strawberry.type
 class Mutation:
+    # 关注某人
     @strawberry.mutation
     async def follow(self, info: Info, fid: int) -> HTTPResult:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -105,6 +110,7 @@ class Mutation:
         except Exception as e:
             return HTTPResult(status=403, msg=str(e))
 
+    # 取消关注某人
     @strawberry.mutation
     async def unfollow(self, info: Info, fid: int) -> HTTPResult:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -122,6 +128,7 @@ class Mutation:
 
 @strawberry.type
 class Subscription:
+    # 推送事件
     @strawberry.subscription
     async def push_event(self, info: Info) -> AsyncIterator[EventSnapshot]:
         # headers = _collect_headers(info)
