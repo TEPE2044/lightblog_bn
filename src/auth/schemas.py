@@ -19,3 +19,9 @@ class PhoneFormData(BaseModel):
     phone: str = Field(..., min_lenth=11, max_length=11, description="手机号")
     code: str = Field(..., min_lenth=4, max_length=4, description="验证码")
     iaccept: bool = Field(..., description="是否同意用户协议和隐私政策")
+
+
+class ResetData(BaseModel):
+    email: str = Field(...)
+    old_phone: str = Field(...)
+    new_phone: str = Field(...)

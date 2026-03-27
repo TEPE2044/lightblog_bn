@@ -1,12 +1,14 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Request, Query, Body
 from sqlalchemy import update, func
 from fastapi.responses import HTMLResponse
 
 from src.auth import ans
-from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData
+from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData, ResetData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
-    hash_password, store_hashed_password, login_out, change_phone, set_email
+    hash_password, store_hashed_password, login_out, set_email, check_all_phones, confirm_reset_phone
 from src.database import db_dependency, rd_dependency
 from src.deps import limiter
 from src.orm.model import User
@@ -167,14 +169,56 @@ async def email_check(rd: rd_dependency, db: db_dependency,
         raise HTTPException(400, "流程出错，请联系管理员！")
 
 
-# TODO:找回密码
-# 本站目前仅支持通过邮箱找回密码
+@authRouter.get("/verify-email/reset", summary="重置手机号")
+async def reset_phone(rd: rd_dependency, db: db_dependency,
+                      token: str = Query(..., min_length=20, description="邮箱临时令牌")):
+    try:
+        raw = await rd.get(f"temp:reset{token}")
+        # print(raw)
+        if not raw:
+            raise HTTPException(status_code=404, detail="手机号重置失败")
+        data = json.loads(raw)
+        is_reset = await confirm_reset_phone(data, db)
+        if is_reset is True:
+            await rd.delete(f"temp:reset{token}")
+            return {"status": 200, "msg": "手机号重置成功"}
+        else:
+            raise HTTPException(status_code=400, detail="手机号重置失败")
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="手机号重置失败")
+
+
+# 找回手机号
+# 本站目前仅支持通过邮箱重置手机号
 # 参数需要：旧手机号（检查格式，查询 if no->end if yes->邮箱），邮箱（检查格式，查询 if no->end if yes->发送邮件），新手机号（检查格式，查询if ）
 # 流程1：没设置邮箱->end
-# 流程2：有设置邮箱->向邮箱发送一封HTML邮件->校验成功->重置成功
+# 流程2：有设置邮箱->向邮箱发送一封HTML邮件->token校验成功->重置成功
 @authRouter.post("/find-back", summary="手机号已无法使用")
-async def find_back():
-    pass
+async def find_back(data: ResetData, db: db_dependency, rd: rd_dependency):
+    isPhone = await phone_validation(data.new_phone) and await phone_validation(data.old_phone)
+    if isPhone is False:
+        raise HTTPException(400, "手机号无效或不存在")
+    # 检查手机号
+    isExists = await check_all_phones(data, db)
+    if isExists is False:
+        raise HTTPException(400, "用户未设置邮箱、账号不存在或手机号已被使用")
+    try:
+        # 生成临时token
+        tc = await create_temp_code(rd, data.email, data)
+        # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}'
+        rlink = f'http://localhost:12404/api/v1/auth/verify-email/reset?token={tc}'  # 测试专用
+        is_send = await send_html_mail(data.email, rlink)
+
+        if is_send is True:
+            return {"status": 200, "msg": "验证邮件发送成功"}
+        else:
+            await rd.delete(f"temp:reset{tc}", data.email)
+            raise HTTPException(status_code=500, detail="发送邮件失败")
+    except Exception as e:
+        print(e)
+        if tc:
+            await rd.delete(f"temp:reset{tc}", data.email)
 
 
 # TODO:更换手机号
@@ -184,7 +228,7 @@ async def change_phone_safety(phone: auth_phone, new_phone: str, db: db_dependen
     if phone is False:
         raise HTTPException(401, "登录已失效,请重新登录")
 
-    is_change = await change_phone(new_phone, phone, db)
+    # is_change = await change_phone(new_phone, phone, db)
 
 
 # 待测试

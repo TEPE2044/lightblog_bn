@@ -1,8 +1,11 @@
+import json
 import secrets
 from datetime import datetime, timedelta
+from typing import Optional
 
 from jose import jwt
 
+from src.auth.schemas import ResetData
 from src.config import settings
 from src.database import rd_dependency
 from src.utils.aes_client import encrypt_phone
@@ -47,7 +50,16 @@ async def create_all_tokens(phone: str, rd: rd_dependency) -> dict:
     }
 
 
-async def create_temp_code(rd: rd_dependency, email: str) -> str:
+async def create_temp_code(rd: rd_dependency, email: str, data: Optional[ResetData] = None) -> str:
     tc = secrets.token_urlsafe(32)
+    if data:
+        key = f"temp:reset{tc}"
+        value = json.dumps({
+            "email": email,
+            "old_phone": data.old_phone,
+            "new_phone": data.new_phone
+        })
+        await rd.setex(key, 600, value)
+        return tc
     await rd.setex(f"temp{tc}", 600, email)
     return tc

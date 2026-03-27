@@ -8,6 +8,7 @@ import bcrypt
 from sqlalchemy import select, exists, insert, update
 from sqlalchemy.exc import IntegrityError
 
+from src.auth.schemas import ResetData
 from src.config import settings
 from src.database import db_dependency, rd_dependency
 from src.orm.model import User
@@ -308,5 +309,37 @@ async def set_email(email: str, reks_id: int, db: db_dependency) -> bool:
         return False
 
 
-async def change_phone(new_phone, old_phone, db: db_dependency) -> bool:
-    pass
+async def confirm_reset_phone(data, db: db_dependency) -> bool:
+    print(data["old_phone"])
+    stmt = update(User).where(User.phone == data["old_phone"], User.email == data["email"]).values(
+        phone=data["new_phone"])
+    try:
+        res = await db.execute(stmt)
+        await db.commit()
+        print(res.rowcount)
+        if res.rowcount > 0:
+            return True
+        return False
+    except Exception as e:
+        await db.rollback()
+        print(e)
+        return False
+
+
+async def check_all_phones(args: ResetData, db: db_dependency) -> bool:
+    # 检查旧邮箱
+    stmt = select(User).where(User.phone == args.old_phone, User.email == args.email)
+    new_stmt = select(User).where(User.phone == args.new_phone)
+    try:
+        # 确定有这个账号，有就True，没有就False
+        res = (await db.execute(stmt)).scalar_one_or_none()
+        if res is None:
+            return False
+        # 确定手机号是不是注册过了，是就False，没用过才是True
+        res = (await db.execute(new_stmt)).scalar_one_or_none()
+        if res is None:
+            return True
+        return False
+    except Exception as e:
+        print(e)
+        return False
