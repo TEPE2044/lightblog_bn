@@ -279,7 +279,7 @@ async def publish_draft(request: Request, blog_id: int, db: db_dependency,
     pass
 
 
-# TODO:通用删除，可以删博客和草稿
+# 通用删除，可以删博客和草稿
 @blogRouter.delete("/delete/{id}", summary="删除博客")
 async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
     if phone is False:
