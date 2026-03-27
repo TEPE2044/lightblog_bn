@@ -383,7 +383,7 @@ async def query_by_hash(md5: str, db: db_dependency) -> str | None:
 
 # 软删除博客
 async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
-    stmt = update(Blog.state == 'delete').where(Blog.id == blog_id, Blog.rid == rid)
+    stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(status="delete")
     try:
         res = await db.execute(stmt)
         if res:

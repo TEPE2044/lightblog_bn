@@ -136,7 +136,7 @@ async def create_music_blog(data: BlogData, rid: int, music_id: int, db: db_depe
 
 
 async def soft_delete_music(db: db_dependency, music_id: int, rid: int) -> bool:
-    stmt = update(Music.state == 'delete').where(Music.id == music_id, Music.rid == rid)
+    stmt = update(Music).where(Music.id == music_id, Music.rid == rid).values(status="delete")
     try:
         res = await db.execute(stmt)
         if res:
