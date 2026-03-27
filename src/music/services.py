@@ -139,8 +139,10 @@ async def soft_delete_music(db: db_dependency, music_id: int, rid: int) -> bool:
     stmt = update(Music).where(Music.id == music_id, Music.rid == rid).values(status="delete")
     try:
         res = await db.execute(stmt)
-        if res:
+        await db.commit()
+        if res.rowcount > 0:
             return True
+        return False
     except Exception as e:
         print(e)
         return False

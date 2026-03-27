@@ -386,8 +386,11 @@ async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
     stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(status="delete")
     try:
         res = await db.execute(stmt)
-        if res:
+        await db.commit()
+        if res.rowcount > 0:
             return True
+        return False
     except Exception as e:
+        await db.rollback()
         print(e)
         return False
