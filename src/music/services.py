@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import UploadFile
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from sqlalchemy.dialects.postgresql import insert as prt
 
 from src.database import db_dependency
@@ -131,5 +131,16 @@ async def create_music_blog(data: BlogData, rid: int, music_id: int, db: db_depe
         return True
     except Exception as e:
         await db.rollback()
+        print(e)
+        return False
+
+
+async def soft_delete_music(db: db_dependency, music_id: int, rid: int) -> bool:
+    stmt = update(Music.state == 'delete').where(Music.id == music_id, Music.rid == rid)
+    try:
+        res = await db.execute(stmt)
+        if res:
+            return True
+    except Exception as e:
         print(e)
         return False

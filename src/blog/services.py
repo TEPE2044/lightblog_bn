@@ -2,7 +2,7 @@ import hashlib
 from typing import Dict
 
 from fastapi import UploadFile
-from sqlalchemy import select, insert, func, and_
+from sqlalchemy import select, insert, func, and_, update
 from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
@@ -174,11 +174,11 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
 
 
 async def query_user_blogs_cursor(
-    rid: int,
-    state_: BlogStateEnum,
-    cursor: int | None,
-    limit: int,
-    db: db_dependency,
+        rid: int,
+        state_: BlogStateEnum,
+        cursor: int | None,
+        limit: int,
+        db: db_dependency,
 ) -> Dict | None:
     try:
         stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
@@ -286,9 +286,9 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
 
 
 async def query_hot_blog_cursor(
-    cursor: int | None,
-    limit: int,
-    db: db_dependency,
+        cursor: int | None,
+        limit: int,
+        db: db_dependency,
 ) -> Dict | None:
     try:
         like_subq = (
@@ -379,3 +379,15 @@ async def file_md5(upload_file: UploadFile) -> str:
 async def query_by_hash(md5: str, db: db_dependency) -> str | None:
     stmt = select(Gallery.url).filter(Gallery.md5 == md5).limit(1)
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+# 软删除博客
+async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
+    stmt = update(Blog.state == 'delete').where(Blog.id == blog_id, Blog.rid == rid)
+    try:
+        res = await db.execute(stmt)
+        if res:
+            return True
+    except Exception as e:
+        print(e)
+        return False

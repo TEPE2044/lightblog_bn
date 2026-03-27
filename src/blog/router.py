@@ -14,7 +14,7 @@ from src.blog.services import (
     query_daily_blog,
     query_hot_blog_by_likes,
     query_user_blogs_cursor,
-    query_hot_blog_cursor,
+    query_hot_blog_cursor, soft_delete_blog,
 )
 from src.database import db_dependency
 from src.deps import limiter
@@ -279,15 +279,22 @@ async def publish_draft(request: Request, blog_id: int, db: db_dependency,
     pass
 
 
-# TODO:删除博客
-@blogRouter.delete("/delete-blog", summary="删除博客")
-async def delete_blog(phone: auth_phone, db: db_dependency):
-    pass
+# TODO:通用删除，可以删博客和草稿
+@blogRouter.delete("/delete/{id}", summary="删除博客")
+async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
 
-
-@blogRouter.delete("/delete-draft", summary="删除草稿")
-async def delete_draft(phone: auth_phone, db: db_dependency):
-    pass
+    try:
+        isDelete = await soft_delete_blog(db, blog_id, rid)
+        if isDelete is True:
+            return {"status": "204", "msg": "删除成功"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "删除失败")
 
 
 # 上传图片

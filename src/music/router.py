@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase, CursorPageInput
-from src.music.services import audio_upload, insert_into_music, get_music, get_music_cursor
+from src.music.services import audio_upload, insert_into_music, get_music, get_music_cursor, soft_delete_music
 from src.orm.model import Music, User
 from src.subscribe.services import publish_event_to_followers
 from src.user.services import auth_phone, query_user_rid
@@ -96,3 +96,21 @@ async def upload_audio(phone: auth_phone, db: db_dependency, background: Backgro
     except Exception as e:
         print(e)
         raise HTTPException(500, "上传失败")
+
+
+# 软删除
+@musicRouter.delete("/delete/{id}", summary="删除音乐")
+async def delete_music(phone: auth_phone, db: db_dependency, music_id: int):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
+
+    try:
+        isDelete = await soft_delete_music(db, music_id,rid)
+        if isDelete is True:
+            return {"status": "204", "msg": "删除成功"}
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "删除失败")
