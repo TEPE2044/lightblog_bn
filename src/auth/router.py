@@ -8,15 +8,17 @@ from src.auth import ans
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData, ResetData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
-    hash_password, store_hashed_password, login_out, set_email, check_all_phones, confirm_reset_phone
+    hash_password, store_hashed_password, login_out, set_email, check_all_phones, confirm_reset_phone, change_phone
 from src.database import db_dependency, rd_dependency
 from src.deps import limiter
 from src.orm.model import User
 from src.user.services import auth_phone, query_user_rid
 from src.auth.services import send_html_mail
+from src.utils.Rback import Rback
 from src.utils.jwt_client import create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
+rback = Rback()
 
 
 @authRouter.post("/login-by-account", summary="账号登录")
@@ -203,9 +205,10 @@ async def find_back(data: ResetData, db: db_dependency, rd: rd_dependency):
     isExists = await check_all_phones(data, db)
     if isExists is False:
         raise HTTPException(400, "用户未设置邮箱、账号不存在或手机号已被使用")
+    # 生成临时token
+    tc = await create_temp_code(rd, data.email, data)
     try:
-        # 生成临时token
-        tc = await create_temp_code(rd, data.email, data)
+
         # rlink = f'https://v1.rekindlers.top/api/v1/auth/verify-email?token={tc}'
         rlink = f'http://localhost:12404/api/v1/auth/verify-email/reset?token={tc}'  # 测试专用
         is_send = await send_html_mail(data.email, rlink)
@@ -221,14 +224,23 @@ async def find_back(data: ResetData, db: db_dependency, rd: rd_dependency):
             await rd.delete(f"temp:reset{tc}", data.email)
 
 
-# TODO:更换手机号
+# 更换手机号
+# 要用户重新登录
 @authRouter.post("/change-phone-safety", summary="换绑手机号")
 @limiter.limit("1/month")
-async def change_phone_safety(phone: auth_phone, new_phone: str, db: db_dependency, request: Request):
+async def change_phone_safety(phone: auth_phone, new_phone: str, db: db_dependency, rd: rd_dependency,
+                              request: Request):
     if phone is False:
         raise HTTPException(401, "登录已失效,请重新登录")
-
-    # is_change = await change_phone(new_phone, phone, db)
+    is_change = await change_phone(new_phone, phone, db)
+    if is_change is True:
+        try:
+            await login_out(request, rd)
+        except Exception as e:
+            print(e)
+        return rback.back_msg(200, "更改手机号成功，请重新登录")
+    else:
+        raise HTTPException(400, "修改手机号失败")
 
 
 # 待测试

@@ -343,3 +343,20 @@ async def check_all_phones(args: ResetData, db: db_dependency) -> bool:
     except Exception as e:
         print(e)
         return False
+
+
+# 修改手机号
+async def change_phone(new_phone: str, phone: str, db: db_dependency) -> bool:
+    # 检测是否为正规手机号
+    is_phone = phone_validation(new_phone) and phone_validation(phone)
+    if is_phone is False:
+        return False
+    stmt = update(User).where(User.phone == phone).values(phone=new_phone)
+    try:
+        is_change = await db.execute(stmt)
+        await db.commit()
+        return is_change.rowcount > 0
+    except Exception as e:
+        print(e)
+        await db.rollback()
+        return False
