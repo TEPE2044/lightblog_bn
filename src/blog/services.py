@@ -53,13 +53,13 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
         # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
         # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
         stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
-                .join(User, Blog.rid == User.reks_id).where(Blog.id == id))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == 'publish'))
         result = await db.execute(stmt)
         # 这玩意确实只返回一个，但是它的内容全都在这个对象里！不关scalar或者mappin的事
         row = result.one_or_none()
         if row is None:
             return None
-        print(row)
+        print(f"row:{row}")
         blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
         # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
         # blog.tags is a list of Tag objects; return tag names
@@ -68,7 +68,8 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
             "content": blog.content,
             "title": blog.title,
             "tags": tags,
-            "author": author  # 直接从 JOIN 结果拿
+            "author": author,  # 直接从 JOIN 结果拿
+            "user_id": blog.rid
         }
     except Exception as e:
         print(e)
@@ -383,7 +384,7 @@ async def query_by_hash(md5: str, db: db_dependency) -> str | None:
 
 # 软删除博客
 async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
-    stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(status="delete")
+    stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(state="delete")
     try:
         res = await db.execute(stmt)
         await db.commit()

@@ -21,6 +21,7 @@ from src.deps import limiter
 from src.orm import BlogStateEnum
 from src.orm.model import User
 from src.user.services import auth_phone, query_user_rid
+from src.utils.Rback import rback
 from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
 from src.music.services import create_music_blog
@@ -280,7 +281,7 @@ async def publish_draft(request: Request, blog_id: int, db: db_dependency,
 
 
 # 通用删除，可以删博客和草稿
-@blogRouter.delete("/delete/{id}", summary="删除博客")
+@blogRouter.delete("/delete", summary="删除博客")
 async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
@@ -291,7 +292,7 @@ async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
     try:
         isDelete = await soft_delete_blog(db, blog_id, rid)
         if isDelete is True:
-            return {"status": "204", "msg": "删除成功"}
+            return rback(200,"删除成功")
     except Exception as e:
         print(e)
         raise HTTPException(400, "删除失败")

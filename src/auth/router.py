@@ -14,11 +14,12 @@ from src.deps import limiter
 from src.orm.model import User
 from src.user.services import auth_phone, query_user_rid
 from src.auth.services import send_html_mail
-from src.utils.Rback import Rback
+from src.utils.Rback import rback
+
 from src.utils.jwt_client import create_all_tokens, create_temp_code
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
-rback = Rback()
+
 
 
 @authRouter.post("/login-by-account", summary="账号登录")
@@ -238,7 +239,7 @@ async def change_phone_safety(phone: auth_phone, new_phone: str, db: db_dependen
             await login_out(request, rd)
         except Exception as e:
             print(e)
-        return rback.back_msg(200, "更改手机号成功，请重新登录")
+        return rback(200, "更改手机号成功，请重新登录")
     else:
         raise HTTPException(400, "修改手机号失败")
 
