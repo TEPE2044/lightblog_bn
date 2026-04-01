@@ -80,7 +80,7 @@ async def upload_new_music(phone: auth_phone, db: db_dependency, data: AudioBase
 
 
 # 上传音频接口：1.返回预链接入库 2.后台上传
-# TODO:3.GraphQL订阅在完成时负责通知 4.音频去重
+# 3.GraphQL订阅在完成时负责通知 TODO:4.音频去重
 @musicRouter.post("/upload/audio", summary="上传音频")
 async def upload_audio(phone: auth_phone, db: db_dependency, background: BackgroundTasks,
                        audio: UploadFile = File(...)):

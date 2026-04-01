@@ -100,7 +100,7 @@ class Mutation:
         phone = await auth_current_user(_collect_headers(info), get_redis())
         if not phone:
             return HTTPResult(status=401, msg="UNAUTHORIZED")
-        # TODO:A关注B，建立关系；加入B的频道接收推送
+        # A关注B，建立关系；加入B的频道接收推送
         try:
             is_follow = await insert_follow(fid, phone)
             if is_follow is True:
