@@ -214,7 +214,7 @@ class Blog(Base):
         Enum(BlogEnum),
         default=BlogEnum.blog,
         nullable=False,
-        comment="0音乐博客 1博客"
+        comment="0音乐博客 1博客 2通知"
     )
 
     state: Mapped[BlogStateEnum] = mapped_column(

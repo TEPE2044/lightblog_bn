@@ -23,9 +23,11 @@ class StatusEnum(int, Enum):
     deleted = 3
 
 
+# 新增公告类型
 class BlogEnum(int, Enum):
     mblog = 0
     blog = 1
+    notice = 2
 
 
 # 后期加一个hidden限制
@@ -34,7 +36,6 @@ class BlogStateEnum(int, Enum):
     publish = 1
     delete = 2
     ban = 3  # 服务于后台接口
-
 
 
 class ImgEnum(int, Enum):
