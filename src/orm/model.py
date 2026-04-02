@@ -402,13 +402,13 @@ class Music(Base):
     type: Mapped[MusicTypeEnum] = mapped_column(
         Enum(MusicTypeEnum, native_enum=False),
         default=MusicTypeEnum.material,
-        nullable=True,
+        nullable=False,
         comment="素材0 歌曲1"
     )
     related: Mapped[MusicRelatedEnum] = mapped_column(
         Enum(MusicRelatedEnum, native_enum=False),
         default=MusicRelatedEnum.normal,
-        nullable=True,
+        nullable=False,
         comment="普通用户0 官方（管理员）1"
     )
     cover: Mapped[str] = mapped_column(
