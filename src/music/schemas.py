@@ -1,6 +1,7 @@
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from src.orm import MusicRelatedEnum, MusicTypeEnum
 
 
 class AudioBase(BaseModel):
@@ -9,6 +10,8 @@ class AudioBase(BaseModel):
     desc: Optional[str]
     coverURL: str
     audioURL: str
+    type: MusicTypeEnum = Field(default=MusicTypeEnum.material)
+    related: MusicRelatedEnum = Field(default=MusicRelatedEnum.normal)
 
 
 class CursorPageInput(BaseModel):

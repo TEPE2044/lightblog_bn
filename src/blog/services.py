@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
 from src.orm import BlogStateEnum
+from src.orm import MusicTypeEnum
 from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Music, BlogLike
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
@@ -27,7 +28,7 @@ async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) 
         )
         .join(Music, Blog_Music.music_id == Music.id)
         .join(User, Music.rid == User.reks_id)
-        .where(Blog_Music.blog_id.in_(blog_ids))
+        .where(Blog_Music.blog_id.in_(blog_ids), Music.type == MusicTypeEnum.song)
         .order_by(Blog_Music.created_at.desc())
     )
     rows = (await db.execute(stmt)).all()

@@ -3,7 +3,7 @@ from sqlalchemy import delete, func, insert, select
 from src.blog.services import _query_music_meta_by_blog_ids
 from src.database import db_dependency
 from src.fav.schemas import FavoriteTargetEnum
-from src.orm import BlogStateEnum
+from src.orm import BlogStateEnum, MusicTypeEnum
 from src.orm.model import Blog, BlogFavorite, BlogLike, Music, MusicFavorite, User
 
 
@@ -19,6 +19,7 @@ async def _ensure_music_exists(music_id: int, db: db_dependency) -> bool:
     stmt = select(Music.id).where(
         Music.id == music_id,
         Music.state == BlogStateEnum.publish,
+        Music.type == MusicTypeEnum.song,
     )
     return (await db.execute(stmt)).scalar_one_or_none() is not None
 
@@ -234,6 +235,7 @@ async def _query_music_favorites(rid: int, db: db_dependency) -> list[dict]:
         .where(
             MusicFavorite.user_id == rid,
             Music.state == BlogStateEnum.publish,
+            Music.type == MusicTypeEnum.song,
         )
         .order_by(MusicFavorite.created_at.desc())
     )
