@@ -1,5 +1,5 @@
 import hashlib
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import UploadFile
 from sqlalchemy import select, insert, func, and_, update
@@ -48,12 +48,19 @@ async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) 
 
 
 # 获取博客
-async def get_blogs(id: int, db: db_dependency) -> Dict | None:
-    try:
-        # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
-        # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+async def get_blog(id: int, _type: str, db: db_dependency, phone: Optional[str] = None) -> Dict | None:
+    # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
+    # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+    if phone:
+        # 获取草稿
         stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
-                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == 'publish'))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type, User.phone == phone))
+    else:
+        # 获取博客
+        stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type))
+
+    try:
         result = await db.execute(stmt)
         # 这玩意确实只返回一个，但是它的内容全都在这个对象里！不关scalar或者mappin的事
         row = result.one_or_none()
@@ -77,7 +84,7 @@ async def get_blogs(id: int, db: db_dependency) -> Dict | None:
 
 
 async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, type_: int,
-                                     db: db_dependency) -> int:
+                                     db: db_dependency, state_: Optional[int]=None) -> int:
     """核心：插入或更新 Blog 行并处理 tags（不提交事务）。
     返回 blog_id，调用者负责提交或回滚事务。
     """
@@ -86,13 +93,23 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
 
     # 插入或 upsert Blog 表并返回 Blog 行
     if is_create:
-        stmt = prt(Blog).values(
-            title=data.title,
-            content=data.content,
-            rid=rid,
-            cover=data.cover,
-            type=type_
-        ).returning(Blog)
+        if state_:
+            stmt = prt(Blog).values(
+                title=data.title,
+                content=data.content,
+                rid=rid,
+                cover=data.cover,
+                type=type_,
+                state=state_  # 草稿用
+            ).returning(Blog)
+        else:
+            stmt = prt(Blog).values(
+                title=data.title,
+                content=data.content,
+                rid=rid,
+                cover=data.cover,
+                type=type_
+            ).returning(Blog)
     else:
         stmt = (
             prt(Blog).values(id=blog_id, title=data.title, content=data.content, cover=data.cover)
@@ -136,10 +153,10 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
 
 
 async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
-                      db: db_dependency) -> bool:
+                      db: db_dependency, state_: Optional[int] = None) -> bool:
     """事务包装：调用 core 执行并负责 commit/rollback"""
     try:
-        _ = await create_or_update_blog_core(data, rid, blog_id, type_, db)
+        _ = await create_or_update_blog_core(data, rid, blog_id, type_, db, state_)
         await db.commit()
         return True
     except Exception as e:
@@ -219,7 +236,7 @@ async def query_user_blogs_cursor(
         return None
 
 
-# TODO:每日推荐
+# 每日推荐
 async def query_daily_blog(db: db_dependency) -> list[Dict] | None:
     try:
         stmt = (select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at, User.username)
@@ -385,6 +402,20 @@ async def query_by_hash(md5: str, db: db_dependency) -> str | None:
 # 软删除博客
 async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
     stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(state="delete")
+    try:
+        res = await db.execute(stmt)
+        await db.commit()
+        if res.rowcount > 0:
+            return True
+        return False
+    except Exception as e:
+        await db.rollback()
+        print(e)
+        return False
+
+
+async def _publish_draft(blog_id: int, rid: int, db: db_dependency) -> bool:
+    stmt = update(Blog).values(state='publish').where(Blog.id == blog_id, Blog.rid == rid)
     try:
         res = await db.execute(stmt)
         await db.commit()
