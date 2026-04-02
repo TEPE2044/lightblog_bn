@@ -9,7 +9,8 @@ from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TE
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
-from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum, MusicRelatedEnum, \
+    MusicTypeEnum
 
 
 class User(Base):
@@ -397,6 +398,18 @@ class Music(Base):
         server_default=true(),
         nullable=False,
         comment="是否原创"
+    )
+    type: Mapped[MusicTypeEnum] = mapped_column(
+        Enum(MusicTypeEnum, native_enum=False),
+        default=MusicTypeEnum.material,
+        nullable=True,
+        comment="素材0 歌曲1"
+    )
+    related: Mapped[MusicRelatedEnum] = mapped_column(
+        Enum(MusicRelatedEnum, native_enum=False),
+        default=MusicRelatedEnum.normal,
+        nullable=True,
+        comment="普通用户0 官方（管理员）1"
     )
     cover: Mapped[str] = mapped_column(
         String,

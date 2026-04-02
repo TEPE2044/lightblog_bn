@@ -42,3 +42,13 @@ class ImgEnum(int, Enum):
     file = 0
     pic = 1
     avatar = 2
+
+
+class MusicTypeEnum(int, Enum):
+    material = 0
+    song = 1
+
+
+class MusicRelatedEnum(int, Enum):
+    normal = 0
+    official = 1
