@@ -145,7 +145,7 @@ async def publish_event(receiver_id: int, event_type: str, payload: dict | str) 
                 "event_type": event_type,
                 "data": payload_text,
             },
-            maxlen=20000, # 超过20000就删旧消息
+            maxlen=20000,  # 超过20000就删旧消息
             approximate=True,
         )
     except Exception as e:
