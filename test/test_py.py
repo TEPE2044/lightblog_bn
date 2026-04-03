@@ -53,8 +53,14 @@ def cut_diff():
     print(man)
 
 
+def identify_type():
+    is_the_same = isinstance('man', int)
+    print(f"same type? : {is_the_same}")
+
+
 if __name__ == '__main__':
     play_dynamic_list()
+    identify_type()
     # nums = [1, 2, 3, 4, 5]
     # play_dict()
     # play_hasattr()
