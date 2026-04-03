@@ -17,7 +17,6 @@ from src.utils.obs_client import pre_audio_link
 musicRouter = APIRouter(prefix='/music', tags=['音乐模块'])
 
 
-
 @musicRouter.get("/my-music", summary="获取音乐")
 async def get_my_music(phone: auth_phone, db: db_dependency):
     if phone is False:
@@ -26,6 +25,7 @@ async def get_my_music(phone: auth_phone, db: db_dependency):
     return await get_music(rid, db)
 
 
+# TODO:音乐应该取消游标分页，结构上不需要
 @musicRouter.post("/my-music/cursor", summary="获取当前用户音乐（游标分页）")
 async def get_my_music_cursor(phone: auth_phone, body: CursorPageInput, db: db_dependency):
     if phone is False:

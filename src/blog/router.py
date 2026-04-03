@@ -104,7 +104,7 @@ async def get_user_blog_cursor(rid: int, body: CursorPageInput, db: db_dependenc
         raise HTTPException(404, "获取博客失败")
 
 
-@blogRouter.get("/my-draft/cursor", summary="获取当前用户所有草稿")
+@blogRouter.post("/my-draft/cursor", summary="获取当前用户所有草稿（游标分页）")
 async def get_my_draft(phone: auth_phone, body: CursorPageInput, db: db_dependency):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
