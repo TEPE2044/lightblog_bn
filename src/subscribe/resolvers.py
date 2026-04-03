@@ -23,8 +23,9 @@ from src.subscribe.services import (
 )
 
 
+# train_stream_cursor_用户业务id
 def _user_stream_cursor_key(rid: int) -> str:
-    return f"reksab:subscribe:stream_cursor:{rid}"
+    return f"train:stream_cursor:{rid}"
 
 
 @strawberry.type

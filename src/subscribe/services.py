@@ -136,6 +136,7 @@ async def query_follower_list(phone: str) -> list[dict]:
 async def publish_event(receiver_id: int, event_type: str, payload: dict | str) -> str | None:
     """写入 Redis Stream 事件。"""
     try:
+        # “把 payload 统一变成字符串，方便写进 Redis Stream
         payload_text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
         return await rd_stm.xadd(
             STREAM_KEY,
@@ -144,7 +145,7 @@ async def publish_event(receiver_id: int, event_type: str, payload: dict | str) 
                 "event_type": event_type,
                 "data": payload_text,
             },
-            maxlen=20000,
+            maxlen=20000, # 超过20000就删旧消息
             approximate=True,
         )
     except Exception as e:
