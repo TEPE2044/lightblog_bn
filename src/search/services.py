@@ -186,7 +186,7 @@ async def query_music_paginated(content: str, page: int, page_size: int):
                                Music.rid,
                                Music.state,
                                User.username,
-                               User.avatar).join(User, User.reks_id == Music.rid).where(
+                               User.avatar,User.reks_id).join(User, User.reks_id == Music.rid).where(
                 Music.name.ilike(f"%{content}%"),
                 Music.type == MusicTypeEnum.song,
             ).offset(offset).order_by(Music.id).limit(page_size)

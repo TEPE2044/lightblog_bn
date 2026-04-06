@@ -49,17 +49,27 @@ async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) 
 
 
 # 获取博客
-async def get_blog(id: int, _type: str, db: db_dependency, phone: Optional[str] = None) -> Dict | None:
+async def get_blog(id: int, _type: str, db: db_dependency,
+                   phone: Optional[str] = None) -> Dict | None:
     # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
     # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+    global song
     if phone:
         # 获取草稿
         stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
-                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type, User.phone == phone))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type,
+                                                            User.phone == phone))
     else:
         # 获取博客
-        stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
+        stmt = (select(Blog, User.username, User.avatar).options(selectinload(Blog.tags))
                 .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type))
+
+    try:
+        temp_list = [id]
+        song = await _query_music_meta_by_blog_ids(temp_list, db)
+        print(song)
+    except Exception as e:
+        print(e)
 
     try:
         result = await db.execute(stmt)
@@ -68,24 +78,36 @@ async def get_blog(id: int, _type: str, db: db_dependency, phone: Optional[str] 
         if row is None:
             return None
         print(f"row:{row}")
-        blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
+        blog, author, avatar = row  # blog 是 ORM Blog 对象，author 是 username 字段
         # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
         # blog.tags is a list of Tag objects; return tag names
         tags = [t.name for t in getattr(blog, 'tags', [])]
-        return {
-            "content": blog.content,
-            "title": blog.title,
-            "tags": tags,
-            "author": author,  # 直接从 JOIN 结果拿
-            "user_id": blog.rid
-        }
+        if song:
+            return {
+                "content": blog.content,
+                "title": blog.title,
+                "tags": tags,
+                "author": author,
+                "avatar": avatar,
+                "user_id": blog.rid,
+                "song": song.get(int(blog.id))
+            }
+        else:
+            return {
+                "content": blog.content,
+                "title": blog.title,
+                "tags": tags,
+                "author": author,
+                "avatar": avatar,
+                "user_id": blog.rid
+            }
     except Exception as e:
         print(e)
         return None
 
 
 async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, type_: int,
-                                     db: db_dependency, state_: Optional[int]=None) -> int:
+                                     db: db_dependency, state_: Optional[int] = None) -> int:
     """核心：插入或更新 Blog 行并处理 tags（不提交事务）。
     返回 blog_id，调用者负责提交或回滚事务。
     """
