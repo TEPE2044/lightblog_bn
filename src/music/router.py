@@ -2,7 +2,6 @@ from datetime import datetime
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase, CursorPageInput
@@ -13,6 +12,7 @@ from src.user.services import auth_phone, query_user_rid
 from src.utils.Rback import rback
 
 from src.utils.obs_client import pre_audio_link
+from src.orm import MusicTypeEnum
 
 musicRouter = APIRouter(prefix='/music', tags=['音乐模块'])
 
@@ -118,3 +118,33 @@ async def delete_music(phone: auth_phone, db: db_dependency, music_id: int):
     except Exception as e:
         print(e)
         raise HTTPException(400, "删除失败")
+
+
+@musicRouter.get("/hot", summary="获取最新的6首歌曲")
+async def get_hot_song(phone: auth_phone, db: db_dependency):
+    # Return the latest 6 published music entries where type is 'song'
+    try:
+        stmt = (
+            select(Music, User.username, User.avatar)
+            .join(User, Music.rid == User.reks_id)
+            .where(Music.state == 'publish', Music.type == MusicTypeEnum.song)
+            .order_by(Music.created_at.desc())
+            .limit(6)
+        )
+
+        result = await db.execute(stmt)
+        rows = result.mappings().all()
+
+        items = [
+            {
+                **{k: v for k, v in row[Music].__dict__.items() if not k.startswith('_')},
+                "username": row["username"],
+                "avatar": row["avatar"],
+            }
+            for row in rows
+        ]
+
+        return items
+    except Exception as e:
+        print(e)
+        raise HTTPException(500, "获取热门歌曲失败")
