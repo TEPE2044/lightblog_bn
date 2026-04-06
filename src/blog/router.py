@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from src.blog.schemas import BlogData, CursorPageInput
 from src.blog.services import (
@@ -18,7 +18,7 @@ from src.blog.services import (
 from src.database import db_dependency
 from src.deps import limiter
 from src.orm import BlogStateEnum
-from src.orm.model import User
+from src.orm.model import User, Tag, blogs_tags, Blog
 from src.user.services import auth_phone, query_user_rid
 from src.utils.Rback import rback
 from src.utils.obs_client import img_upload, pre_img_link
@@ -365,3 +365,32 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
     except Exception as e:
         print(e)
         raise HTTPException(400, "上传丢失/失败")
+
+
+@blogRouter.get("/tags/hot", summary="热门标签")
+async def get_hot_tags(phone: auth_phone, db: db_dependency):
+    # Require valid auth
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+
+    try:
+        # Count associations between published blogs and tags, order by count desc, limit 10
+        stmt = (
+            select(Tag.name, func.count(blogs_tags.c.blog_id).label("count"))
+            .select_from(blogs_tags)
+            .join(Tag, Tag.id == blogs_tags.c.tag_id)
+            .join(Blog, Blog.id == blogs_tags.c.blog_id)
+            .where(Blog.state == BlogStateEnum.publish)
+            .group_by(Tag.id, Tag.name)
+            .order_by(func.count(blogs_tags.c.blog_id).desc())
+            .limit(10)
+        )
+
+        rows = (await db.execute(stmt)).mappings().all()
+
+        tags = [{"name": r["name"], "count": int(r["count"])} for r in rows]
+
+        return {"msg": "获取成功", "tags": tags}
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取热门标签失败")
