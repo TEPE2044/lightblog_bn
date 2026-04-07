@@ -6,8 +6,8 @@ from strawberry.fastapi import GraphQLRouter
 from src.database.redis_connector import get_redis
 from src.gql import HTTPResult
 from src.gql.deps import auth_current_user, _collect_headers
-from src.notice.schemas import Notif
-from src.notice.services import post_notif
+from src.notification.schemas import Notif
+from src.notification.services import post_notif
 
 
 # Notification

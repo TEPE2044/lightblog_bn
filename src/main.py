@@ -10,7 +10,7 @@ from src.auth.router import authRouter
 from src.blog.router import blogRouter
 from src.deps import limiter
 from src.fav.router import favRouter
-from src.notice.resolvers import notifRouter
+from src.notification.resolvers import notifRouter
 from src.search.resolvers import searchRouter
 
 from src.subscribe.resolvers import subscribeRouter

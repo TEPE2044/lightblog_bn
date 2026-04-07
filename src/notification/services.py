@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from src.database.pg_connector import SessionLocal
-from src.notice.schemas import Notif
+from src.notification.schemas import Notif
 from src.orm.model import Blog
 
 

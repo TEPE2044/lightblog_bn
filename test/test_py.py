@@ -47,6 +47,14 @@ def play_dynamic_list():
     print(f)
 
 
+# 原理：字典的键天然唯一
+# dict.fromkeys(['a', 'b', 'a', 'c'])
+# # → {'a': None, 'b': None, 'c': None}  重复的'a'被自动去重
+#
+# # 再转回列表
+# list(dict.fromkeys(['a', 'b', 'a', 'c']))
+# → ['a', 'b', 'c']
+
 def cut_diff():
     # 优雅去重，不丢排序
     man = list(dict.fromkeys('tags', 'hei'))

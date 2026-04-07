@@ -1,4 +1,4 @@
-"""add /notice/ into blogenum
+"""add /notification/ into blogenum
 
 Revision ID: b79d15c7022b
 Revises: 28fb06cd30f3
