@@ -161,7 +161,7 @@ async def get_draft_by_id(id: int, db: db_dependency, phone: auth_phone):
     # 根据id获取草稿,需要鉴权，且只能由作者本人访问
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
-    return await get_blog(id, 'publish', db, phone)
+    return await get_blog(id, 'draft', db, phone)
 
 
 # 创建博客

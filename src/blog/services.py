@@ -12,6 +12,15 @@ from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Musi
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
+def _normalize_cover_list(raw_cover) -> list[str]:
+    """Normalize cover field to stable list[str] for frontend rendering."""
+    if isinstance(raw_cover, list):
+        return [str(item) for item in raw_cover if item]
+    if isinstance(raw_cover, str):
+        return [raw_cover] if raw_cover.strip() else []
+    return []
+
+
 async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) -> dict[int, Dict]:
     if len(blog_ids) == 0:
         return {}
@@ -53,7 +62,6 @@ async def get_blog(id: int, _type: str, db: db_dependency,
                    phone: Optional[str] = None) -> Dict | None:
     # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
     # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
-    global song
     if phone:
         # 获取草稿
         stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
@@ -64,10 +72,9 @@ async def get_blog(id: int, _type: str, db: db_dependency,
         stmt = (select(Blog, User.username, User.avatar).options(selectinload(Blog.tags))
                 .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type))
 
+    song = {}
     try:
-        temp_list = [id]
-        song = await _query_music_meta_by_blog_ids(temp_list, db)
-        print(song)
+        song = await _query_music_meta_by_blog_ids([id], db)
     except Exception as e:
         print(e)
 
@@ -77,8 +84,11 @@ async def get_blog(id: int, _type: str, db: db_dependency,
         row = result.one_or_none()
         if row is None:
             return None
-        print(f"row:{row}")
-        blog, author, avatar = row  # blog 是 ORM Blog 对象，author 是 username 字段
+        if phone:
+            blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
+            avatar = None
+        else:
+            blog, author, avatar = row
         # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
         # blog.tags is a list of Tag objects; return tag names
         tags = [t.name for t in getattr(blog, 'tags', [])]
@@ -199,9 +209,9 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
         result = [
             {
                 "id": blog.id,
-                "cover": blog.cover,
+                "cover": _normalize_cover_list(blog.cover),
                 "title": blog.title,
-                "type": blog.type,
+                "type": int(blog.type),
                 "created_at": blog.created_at,
                 "music": music_map.get(int(blog.id))
             }
@@ -222,9 +232,7 @@ async def query_user_blogs_cursor(
         db: db_dependency,
 ) -> Dict | None:
     try:
-        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
-            and_(Blog.rid == rid, Blog.state == state_)
-        )
+        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(Blog.rid == rid, Blog.state == state_)
         if cursor is not None:
             stmt = stmt.where(Blog.id < cursor)
 
@@ -239,9 +247,9 @@ async def query_user_blogs_cursor(
         items = [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "music": music_map.get(int(row.id)),
             }
@@ -312,9 +320,9 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
         return [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
@@ -374,9 +382,9 @@ async def query_hot_blog_cursor(
         items = [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
