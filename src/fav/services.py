@@ -3,7 +3,7 @@ from sqlalchemy import delete, func, insert, select
 from src.blog.services import _query_music_meta_by_blog_ids
 from src.database import db_dependency
 from src.fav.schemas import FavoriteTargetEnum
-from src.orm import BlogStateEnum
+from src.orm import BlogStateEnum, MusicTypeEnum
 from src.orm.model import Blog, BlogFavorite, BlogLike, Music, MusicFavorite, User
 
 
@@ -19,6 +19,7 @@ async def _ensure_music_exists(music_id: int, db: db_dependency) -> bool:
     stmt = select(Music.id).where(
         Music.id == music_id,
         Music.state == BlogStateEnum.publish,
+        Music.type == MusicTypeEnum.song,
     )
     return (await db.execute(stmt)).scalar_one_or_none() is not None
 
@@ -90,30 +91,35 @@ async def query_favorite_status_map(target_ids: list[int], target_type: Favorite
     #  return {int(target_id): (int(target_id) in existed_ids) for target_id in target_ids}
     return {int(target_id): int(target_id) in existed_ids for target_id in target_ids}
 
-
+# 收藏
 async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
                        rid: int, favorited: bool, db: db_dependency) -> dict | None:
     try:
+        # 如果目标类型是blog
         if target_type == FavoriteTargetEnum.blog:
+            # 未发布的博客和不存在的博客，直接return None
             if not await _ensure_blog_exists(target_id, db):
                 return None
-
+            # 在表中找对应的选项
             existed_stmt = select(BlogFavorite.id).where(
                 BlogFavorite.user_id == rid,
                 BlogFavorite.blog_id == target_id,
             )
             existed = (await db.execute(existed_stmt)).scalar_one_or_none()
+            # 如果前端状态是true，证明新点赞的
             if favorited:
+                # 没有这条点赞记录，插入新记录
                 if existed is None:
                     await db.execute(insert(BlogFavorite).values(user_id=rid, blog_id=target_id))
                 await db.commit()
                 return {"msg": "收藏成功", "is_favorited": True}
-
+            # 已经点过赞了，删掉
             if existed is not None:
                 await db.execute(delete(BlogFavorite).where(BlogFavorite.id == existed))
             await db.commit()
             return {"msg": "取消收藏成功", "is_favorited": False}
 
+        # 同理可得，目标类型是music
         if not await _ensure_music_exists(target_id, db):
             return None
 
@@ -138,6 +144,7 @@ async def set_favorite(target_id: int, target_type: FavoriteTargetEnum,
         return False
 
 
+# 点赞
 async def set_like(blog_id: int, rid: int, liked: bool, db: db_dependency) -> dict | None:
     try:
         if not await _ensure_blog_exists(blog_id, db):
@@ -228,6 +235,7 @@ async def _query_music_favorites(rid: int, db: db_dependency) -> list[dict]:
         .where(
             MusicFavorite.user_id == rid,
             Music.state == BlogStateEnum.publish,
+            Music.type == MusicTypeEnum.song,
         )
         .order_by(MusicFavorite.created_at.desc())
     )

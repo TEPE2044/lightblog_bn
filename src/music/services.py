@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from fastapi import UploadFile
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from sqlalchemy.dialects.postgresql import insert as prt
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase
+from src.orm import MusicTypeEnum
 from src.orm.model import Music, User, Blog_Music
 from src.utils.obs_client import myBucket, myObs
 from src.blog.schemas import BlogData
@@ -16,7 +17,7 @@ async def get_music(rid: int, db: db_dependency) -> list[dict]:
     stmt = (
         select(Music, User.username, User.avatar)
         .join(User, Music.rid == User.reks_id)
-        .where(Music.rid == rid, Music.state == 'publish')
+        .where(Music.rid == rid, Music.state == 'publish', Music.type == MusicTypeEnum.song)
     )
     result = await db.execute(stmt)
     rows = result.mappings().all()
@@ -36,7 +37,7 @@ async def get_music_cursor(rid: int, cursor: int | None, limit: int, db: db_depe
     stmt = (
         select(Music, User.username, User.avatar)
         .join(User, Music.rid == User.reks_id)
-        .where(Music.rid == rid, Music.state == 'publish')
+        .where(Music.rid == rid, Music.state == 'publish', Music.type == MusicTypeEnum.song)
     )
     if cursor is not None:
         stmt = stmt.where(Music.id < cursor)
@@ -92,6 +93,8 @@ async def insert_into_music(data: AudioBase, db: db_dependency, rid: int) -> boo
         name=data.name,
         rid=rid,
         original=data.isOriginal,
+        type=data.type,
+        related=data.related,
         cover=data.coverURL,
         desc=data.desc,
         audio=data.audioURL,
@@ -117,7 +120,9 @@ async def create_music_blog(data: BlogData, rid: int, music_id: int, db: db_depe
         blog_id = await create_or_update_blog_core(data, rid, 0, 0, db)
 
         # 确认 music 存在
-        row = (await db.execute(select(Music.id).where(Music.id == music_id))).scalar_one_or_none()
+        row = (await db.execute(
+            select(Music.id).where(Music.id == music_id, Music.type == MusicTypeEnum.song)
+        )).scalar_one_or_none()
         if row is None:
             print("----")
             await db.rollback()
@@ -131,5 +136,18 @@ async def create_music_blog(data: BlogData, rid: int, music_id: int, db: db_depe
         return True
     except Exception as e:
         await db.rollback()
+        print(e)
+        return False
+
+
+async def soft_delete_music(db: db_dependency, music_id: int, rid: int) -> bool:
+    stmt = update(Music).where(Music.id == music_id, Music.rid == rid).values(state="delete")
+    try:
+        res = await db.execute(stmt)
+        await db.commit()
+        if res.rowcount > 0:
+            return True
+        return False
+    except Exception as e:
         print(e)
         return False

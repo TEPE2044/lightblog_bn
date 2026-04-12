@@ -2,6 +2,7 @@ from typing import Dict, List
 
 from sqlalchemy import select, func, and_, or_
 from src.database.pg_connector import SessionLocal
+from src.orm import MusicTypeEnum
 from src.orm.model import Blog, User, blogs_tags, Tag, Music
 
 
@@ -167,7 +168,10 @@ async def query_music_paginated(content: str, page: int, page_size: int):
         offset = (page - 1) * page_size
 
         try:
-            count_stmt = select(func.count()).where(Music.name.ilike(f"%{content}%"))
+            count_stmt = select(func.count()).where(
+                Music.name.ilike(f"%{content}%"),
+                Music.type == MusicTypeEnum.song,
+            )
             total = (await db.execute(count_stmt)).scalar() or 0
 
             data_stmt = select(Music.audio,
@@ -177,11 +181,15 @@ async def query_music_paginated(content: str, page: int, page_size: int):
                                Music.id,
                                Music.name,
                                Music.original,
+                               Music.type,
+                               Music.related,
                                Music.rid,
                                Music.state,
                                User.username,
-                               User.avatar).join(User, User.reks_id == Music.rid).where(
-                Music.name.ilike(f"%{content}%")).offset(offset).order_by(Music.id).limit(page_size)
+                               User.avatar,User.reks_id).join(User, User.reks_id == Music.rid).where(
+                Music.name.ilike(f"%{content}%"),
+                Music.type == MusicTypeEnum.song,
+            ).offset(offset).order_by(Music.id).limit(page_size)
             music = (await db.execute(data_stmt)).mappings().all()
 
             result = [

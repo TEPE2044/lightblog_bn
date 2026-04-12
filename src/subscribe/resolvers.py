@@ -23,12 +23,14 @@ from src.subscribe.services import (
 )
 
 
+# train_stream_cursor_用户业务id
 def _user_stream_cursor_key(rid: int) -> str:
-    return f"reksab:subscribe:stream_cursor:{rid}"
+    return f"train:stream_cursor:{rid}"
 
 
 @strawberry.type
 class Query:
+    # 获取用户的关注数量与粉丝数量
     @strawberry.field
     async def follow_stats(self, info: Info) -> FollowStatsSnapshot:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -45,6 +47,7 @@ class Query:
             followerCount=follower_count,
         )
 
+    # 获取关注列表
     @strawberry.field
     async def following_list(self, info: Info) -> list[FollowUserSnapshot]:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -62,6 +65,7 @@ class Query:
             for item in items
         ]
 
+    # 获取粉丝列表
     @strawberry.field
     async def follower_list(self, info: Info) -> list[FollowUserSnapshot]:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -79,6 +83,7 @@ class Query:
             for item in items
         ]
 
+    # 根据id获取他/她的粉丝列表
     @strawberry.field
     async def follow_stats_by_rid(self, rid: int) -> FollowStatsSnapshot:
         following_count, follower_count = await query_follow_stats_by_rid(rid)
@@ -90,12 +95,13 @@ class Query:
 
 @strawberry.type
 class Mutation:
+    # 关注某人
     @strawberry.mutation
     async def follow(self, info: Info, fid: int) -> HTTPResult:
         phone = await auth_current_user(_collect_headers(info), get_redis())
         if not phone:
             return HTTPResult(status=401, msg="UNAUTHORIZED")
-        # TODO:A关注B，建立关系；加入B的频道接收推送
+        # A关注B，建立关系；加入B的频道接收推送
         try:
             is_follow = await insert_follow(fid, phone)
             if is_follow is True:
@@ -105,6 +111,7 @@ class Mutation:
         except Exception as e:
             return HTTPResult(status=403, msg=str(e))
 
+    # 取消关注某人
     @strawberry.mutation
     async def unfollow(self, info: Info, fid: int) -> HTTPResult:
         phone = await auth_current_user(_collect_headers(info), get_redis())
@@ -122,6 +129,7 @@ class Mutation:
 
 @strawberry.type
 class Subscription:
+    # 推送事件
     @strawberry.subscription
     async def push_event(self, info: Info) -> AsyncIterator[EventSnapshot]:
         # headers = _collect_headers(info)

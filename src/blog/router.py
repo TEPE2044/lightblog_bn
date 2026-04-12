@@ -1,11 +1,10 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from src.blog.schemas import BlogData, CursorPageInput
 from src.blog.services import (
-    get_blogs,
     upsert_blog,
     query_user_blogs,
     insert_into_gallery,
@@ -14,13 +13,14 @@ from src.blog.services import (
     query_daily_blog,
     query_hot_blog_by_likes,
     query_user_blogs_cursor,
-    query_hot_blog_cursor,
+    query_hot_blog_cursor, soft_delete_blog, get_blog, _publish_draft,
 )
 from src.database import db_dependency
 from src.deps import limiter
 from src.orm import BlogStateEnum
-from src.orm.model import User
+from src.orm.model import User, Tag, blogs_tags, Blog
 from src.user.services import auth_phone, query_user_rid
+from src.utils.Rback import rback
 from src.utils.obs_client import img_upload, pre_img_link
 from src.utils.xss_clean import clean_content
 from src.music.services import create_music_blog
@@ -67,8 +67,6 @@ async def get_my_blog_cursor(phone: auth_phone, body: CursorPageInput, db: db_de
         if page is None:
             raise HTTPException(404, "获取博客失败")
         return page
-    except HTTPException:
-        raise
     except Exception as e:
         print(e)
         raise HTTPException(404, "获取博客失败")
@@ -101,16 +99,33 @@ async def get_user_blog_cursor(rid: int, body: CursorPageInput, db: db_dependenc
         if page is None:
             raise HTTPException(404, "获取博客失败")
         return page
-    except HTTPException:
-        raise
     except Exception as e:
         print(e)
         raise HTTPException(404, "获取博客失败")
 
 
-@blogRouter.get("/my-draft", summary="获取当前用户所有草稿")
-async def get_my_draft(phone: auth_phone, db: db_dependency):
-    pass
+@blogRouter.post("/my-draft/cursor", summary="获取当前用户所有草稿（游标分页）")
+async def get_my_draft(phone: auth_phone, body: CursorPageInput, db: db_dependency):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    try:
+        rid = await query_user_rid(phone, db)
+        if rid is None:
+            raise HTTPException(404, "用户不存在")
+
+        page = await query_user_blogs_cursor(
+            rid=rid,
+            state_=BlogStateEnum.draft,
+            cursor=body.cursor,
+            limit=body.limit,
+            db=db
+        )
+        if page is None:
+            raise HTTPException(404, "获取博客失败")
+        return page
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取草稿失败")
 
 
 @blogRouter.get("/dailyblog", summary="每日推荐")
@@ -137,14 +152,16 @@ async def get_hot_blog_cursor_page(body: CursorPageInput, db: db_dependency):
 # 读取有效博客不需要鉴权
 @blogRouter.get("/{id}", summary="根据id获取博客")
 async def get_blog_by_id(id: int, db: db_dependency):
-    return await get_blogs(id, db)
+    return await get_blog(id, 'publish', db)
 
 
 # 需要鉴权，因为草稿可能包含敏感信息，且只能由作者本人访问
 @blogRouter.get("/draft/{id}", summary="根据id获取草稿")
 async def get_draft_by_id(id: int, db: db_dependency, phone: auth_phone):
-    # TODO:根据id获取草稿,需要鉴权，且只能由作者本人访问
-    pass
+    # 根据id获取草稿,需要鉴权，且只能由作者本人访问
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    return await get_blog(id, 'draft', db, phone)
 
 
 # 创建博客
@@ -224,7 +241,7 @@ async def upload_draft(request: Request, data: BlogData, db: db_dependency, phon
         rid = await query_user_rid(phone, db)
         # XSS清洗 插入数据库
         data.content = await clean_content(data.content)
-        is_insert = await upsert_blog(data, rid, 0, 0, db)
+        is_insert = await upsert_blog(data, rid, 0, 1, db, 0)
         if is_insert is True:
             return {"msg": is_insert}
         else:
@@ -234,7 +251,7 @@ async def upload_draft(request: Request, data: BlogData, db: db_dependency, phon
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/my-blog/{id}", summary="更新博客")
+@blogRouter.post("/my-blog/update", summary="更新博客")
 async def update_blog(request: Request, data: BlogData, blog_id: int, db: db_dependency,
                       phone: auth_phone):
     if phone is False:
@@ -253,7 +270,7 @@ async def update_blog(request: Request, data: BlogData, blog_id: int, db: db_dep
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/my-draft/{id}", summary="更新草稿")
+@blogRouter.post("/my-draft/update", summary="更新草稿")
 async def update_draft(request: Request, data: BlogData, blog_id: int, db: db_dependency,
                        phone: auth_phone):
     if phone is False:
@@ -272,22 +289,38 @@ async def update_draft(request: Request, data: BlogData, blog_id: int, db: db_de
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/publish/{id}", summary="发布草稿")
+@blogRouter.post("/draft/publish", summary="发布草稿")
 async def publish_draft(request: Request, blog_id: int, db: db_dependency,
                         phone: auth_phone):
-    # TODO:发布草稿,只需要将type改为1即可
-    pass
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
+
+    res = await _publish_draft(blog_id, db, rid)
+    if res:
+        return rback(200, "发布草稿成功")
+    else:
+        raise HTTPException(400, "发布草稿失败")
 
 
-# TODO:删除博客
-@blogRouter.delete("/delete-blog", summary="删除博客")
-async def delete_blog(phone: auth_phone, db: db_dependency):
-    pass
+# 通用删除，可以删博客和草稿
+@blogRouter.delete("/delete", summary="删除博客")
+async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
 
-
-@blogRouter.delete("/delete-draft", summary="删除草稿")
-async def delete_draft(phone: auth_phone, db: db_dependency):
-    pass
+    try:
+        isDelete = await soft_delete_blog(db, blog_id, rid)
+        if isDelete is True:
+            return rback(200, "删除成功")
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "删除失败")
 
 
 # 上传图片
@@ -332,3 +365,32 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
     except Exception as e:
         print(e)
         raise HTTPException(400, "上传丢失/失败")
+
+
+@blogRouter.get("/tags/hot", summary="热门标签")
+async def get_hot_tags(phone: auth_phone, db: db_dependency):
+    # Require valid auth
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+
+    try:
+        # Count associations between published blogs and tags, order by count desc, limit 10
+        stmt = (
+            select(Tag.name, func.count(blogs_tags.c.blog_id).label("count"))
+            .select_from(blogs_tags)
+            .join(Tag, Tag.id == blogs_tags.c.tag_id)
+            .join(Blog, Blog.id == blogs_tags.c.blog_id)
+            .where(Blog.state == BlogStateEnum.publish)
+            .group_by(Tag.id, Tag.name)
+            .order_by(func.count(blogs_tags.c.blog_id).desc())
+            .limit(10)
+        )
+
+        rows = (await db.execute(stmt)).mappings().all()
+
+        tags = [{"name": r["name"], "count": int(r["count"])} for r in rows]
+
+        return {"msg": "获取成功", "tags": tags}
+    except Exception as e:
+        print(e)
+        raise HTTPException(404, "获取热门标签失败")

@@ -2,15 +2,17 @@ from datetime import datetime
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 
 from src.database import db_dependency
 from src.music.schemas import AudioBase, CursorPageInput
-from src.music.services import audio_upload, insert_into_music, get_music, get_music_cursor
+from src.music.services import audio_upload, insert_into_music, get_music, get_music_cursor, soft_delete_music
 from src.orm.model import Music, User
 from src.subscribe.services import publish_event_to_followers
 from src.user.services import auth_phone, query_user_rid
+from src.utils.Rback import rback
+
 from src.utils.obs_client import pre_audio_link
+from src.orm import MusicTypeEnum
 
 musicRouter = APIRouter(prefix='/music', tags=['音乐模块'])
 
@@ -23,6 +25,7 @@ async def get_my_music(phone: auth_phone, db: db_dependency):
     return await get_music(rid, db)
 
 
+# TODO:音乐应该取消游标分页，结构上不需要
 @musicRouter.post("/my-music/cursor", summary="获取当前用户音乐（游标分页）")
 async def get_my_music_cursor(phone: auth_phone, body: CursorPageInput, db: db_dependency):
     if phone is False:
@@ -77,7 +80,7 @@ async def upload_new_music(phone: auth_phone, db: db_dependency, data: AudioBase
 
 
 # 上传音频接口：1.返回预链接入库 2.后台上传
-# TODO:3.GraphQL订阅在完成时负责通知 4.音频去重
+# 3.GraphQL订阅在完成时负责通知 TODO:4.音频去重
 @musicRouter.post("/upload/audio", summary="上传音频")
 async def upload_audio(phone: auth_phone, db: db_dependency, background: BackgroundTasks,
                        audio: UploadFile = File(...)):
@@ -96,3 +99,52 @@ async def upload_audio(phone: auth_phone, db: db_dependency, background: Backgro
     except Exception as e:
         print(e)
         raise HTTPException(500, "上传失败")
+
+
+# 软删除
+@musicRouter.delete("/delete", summary="删除音乐")
+async def delete_music(phone: auth_phone, db: db_dependency, music_id: int):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    rid = await query_user_rid(phone, db)
+    if rid is None:
+        raise HTTPException(404, "用户不存在")
+
+    try:
+        isDelete = await soft_delete_music(db, music_id, rid)
+        print(isDelete)
+        if isDelete is True:
+            return rback(200, "删除成功")
+    except Exception as e:
+        print(e)
+        raise HTTPException(400, "删除失败")
+
+
+@musicRouter.get("/hot", summary="获取最新的6首歌曲")
+async def get_hot_song(phone: auth_phone, db: db_dependency):
+    # Return the latest 6 published music entries where type is 'song'
+    try:
+        stmt = (
+            select(Music, User.username, User.avatar)
+            .join(User, Music.rid == User.reks_id)
+            .where(Music.state == 'publish', Music.type == MusicTypeEnum.song)
+            .order_by(Music.created_at.desc())
+            .limit(6)
+        )
+
+        result = await db.execute(stmt)
+        rows = result.mappings().all()
+
+        items = [
+            {
+                **{k: v for k, v in row[Music].__dict__.items() if not k.startswith('_')},
+                "username": row["username"],
+                "avatar": row["avatar"],
+            }
+            for row in rows
+        ]
+
+        return items
+    except Exception as e:
+        print(e)
+        raise HTTPException(500, "获取热门歌曲失败")

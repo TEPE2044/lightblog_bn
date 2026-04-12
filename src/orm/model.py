@@ -9,7 +9,8 @@ from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TE
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
-from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum, MusicRelatedEnum, \
+    MusicTypeEnum
 
 
 class User(Base):
@@ -214,7 +215,7 @@ class Blog(Base):
         Enum(BlogEnum),
         default=BlogEnum.blog,
         nullable=False,
-        comment="0音乐博客 1博客"
+        comment="0音乐博客 1博客 2通知"
     )
 
     state: Mapped[BlogStateEnum] = mapped_column(
@@ -379,6 +380,13 @@ class Music(Base):
         nullable=False,
         comment="创建时间"
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
     state: Mapped[BlogStateEnum] = mapped_column(
         Enum(BlogStateEnum, native_enum=False),
         default=BlogStateEnum.publish,
@@ -390,6 +398,18 @@ class Music(Base):
         server_default=true(),
         nullable=False,
         comment="是否原创"
+    )
+    type: Mapped[MusicTypeEnum] = mapped_column(
+        Enum(MusicTypeEnum, native_enum=False),
+        default=MusicTypeEnum.material,
+        nullable=False,
+        comment="素材0 歌曲1"
+    )
+    related: Mapped[MusicRelatedEnum] = mapped_column(
+        Enum(MusicRelatedEnum, native_enum=False),
+        default=MusicRelatedEnum.normal,
+        nullable=False,
+        comment="普通用户0 官方（管理员）1"
     )
     cover: Mapped[str] = mapped_column(
         String,

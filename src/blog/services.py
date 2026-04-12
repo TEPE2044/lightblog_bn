@@ -1,14 +1,24 @@
 import hashlib
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import UploadFile
-from sqlalchemy import select, insert, func, and_
+from sqlalchemy import select, insert, func, and_, update
 from sqlalchemy.orm import selectinload
 from src.blog.schemas import BlogData
 from src.database import db_dependency
 from src.orm import BlogStateEnum
+from src.orm import MusicTypeEnum
 from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Music, BlogLike
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
+
+
+def _normalize_cover_list(raw_cover) -> list[str]:
+    """Normalize cover field to stable list[str] for frontend rendering."""
+    if isinstance(raw_cover, list):
+        return [str(item) for item in raw_cover if item]
+    if isinstance(raw_cover, str):
+        return [raw_cover] if raw_cover.strip() else []
+    return []
 
 
 async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) -> dict[int, Dict]:
@@ -27,7 +37,7 @@ async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) 
         )
         .join(Music, Blog_Music.music_id == Music.id)
         .join(User, Music.rid == User.reks_id)
-        .where(Blog_Music.blog_id.in_(blog_ids))
+        .where(Blog_Music.blog_id.in_(blog_ids), Music.type == MusicTypeEnum.song)
         .order_by(Blog_Music.created_at.desc())
     )
     rows = (await db.execute(stmt)).all()
@@ -48,35 +58,66 @@ async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) 
 
 
 # 获取博客
-async def get_blogs(id: int, db: db_dependency) -> Dict | None:
-    try:
-        # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
-        # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+async def get_blog(id: int, _type: str, db: db_dependency,
+                   phone: Optional[str] = None) -> Dict | None:
+    # Select the ORM Blog entity and eager-load tags to get a proper list[Tag]
+    # options(selectinload(Blog.tags)) 会在查询博客时同时查询关联的标签，避免了N+1问题
+    if phone:
+        # 获取草稿
         stmt = (select(Blog, User.username).options(selectinload(Blog.tags))
-                .join(User, Blog.rid == User.reks_id).where(Blog.id == id))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type,
+                                                            User.phone == phone))
+    else:
+        # 获取博客
+        stmt = (select(Blog, User.username, User.avatar).options(selectinload(Blog.tags))
+                .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type))
+
+    song = {}
+    try:
+        song = await _query_music_meta_by_blog_ids([id], db)
+    except Exception as e:
+        print(e)
+
+    try:
         result = await db.execute(stmt)
         # 这玩意确实只返回一个，但是它的内容全都在这个对象里！不关scalar或者mappin的事
         row = result.one_or_none()
         if row is None:
             return None
-        print(row)
-        blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
+        if phone:
+            blog, author = row  # blog 是 ORM Blog 对象，author 是 username 字段
+            avatar = None
+        else:
+            blog, author, avatar = row
         # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
         # blog.tags is a list of Tag objects; return tag names
         tags = [t.name for t in getattr(blog, 'tags', [])]
-        return {
-            "content": blog.content,
-            "title": blog.title,
-            "tags": tags,
-            "author": author  # 直接从 JOIN 结果拿
-        }
+        if song:
+            return {
+                "content": blog.content,
+                "title": blog.title,
+                "tags": tags,
+                "author": author,
+                "avatar": avatar,
+                "user_id": blog.rid,
+                "song": song.get(int(blog.id))
+            }
+        else:
+            return {
+                "content": blog.content,
+                "title": blog.title,
+                "tags": tags,
+                "author": author,
+                "avatar": avatar,
+                "user_id": blog.rid
+            }
     except Exception as e:
         print(e)
         return None
 
 
 async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, type_: int,
-                                     db: db_dependency) -> int:
+                                     db: db_dependency, state_: Optional[int] = None) -> int:
     """核心：插入或更新 Blog 行并处理 tags（不提交事务）。
     返回 blog_id，调用者负责提交或回滚事务。
     """
@@ -85,13 +126,23 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
 
     # 插入或 upsert Blog 表并返回 Blog 行
     if is_create:
-        stmt = prt(Blog).values(
-            title=data.title,
-            content=data.content,
-            rid=rid,
-            cover=data.cover,
-            type=type_
-        ).returning(Blog)
+        if state_:
+            stmt = prt(Blog).values(
+                title=data.title,
+                content=data.content,
+                rid=rid,
+                cover=data.cover,
+                type=type_,
+                state=state_  # 草稿用
+            ).returning(Blog)
+        else:
+            stmt = prt(Blog).values(
+                title=data.title,
+                content=data.content,
+                rid=rid,
+                cover=data.cover,
+                type=type_
+            ).returning(Blog)
     else:
         stmt = (
             prt(Blog).values(id=blog_id, title=data.title, content=data.content, cover=data.cover)
@@ -135,10 +186,10 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
 
 
 async def upsert_blog(data: BlogData, rid: int, blog_id: int, type_: int,
-                      db: db_dependency) -> bool:
+                      db: db_dependency, state_: Optional[int] = None) -> bool:
     """事务包装：调用 core 执行并负责 commit/rollback"""
     try:
-        _ = await create_or_update_blog_core(data, rid, blog_id, type_, db)
+        _ = await create_or_update_blog_core(data, rid, blog_id, type_, db, state_)
         await db.commit()
         return True
     except Exception as e:
@@ -158,9 +209,9 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
         result = [
             {
                 "id": blog.id,
-                "cover": blog.cover,
+                "cover": _normalize_cover_list(blog.cover),
                 "title": blog.title,
-                "type": blog.type,
+                "type": int(blog.type),
                 "created_at": blog.created_at,
                 "music": music_map.get(int(blog.id))
             }
@@ -174,16 +225,14 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
 
 
 async def query_user_blogs_cursor(
-    rid: int,
-    state_: BlogStateEnum,
-    cursor: int | None,
-    limit: int,
-    db: db_dependency,
+        rid: int,
+        state_: BlogStateEnum,
+        cursor: int | None,
+        limit: int,
+        db: db_dependency,
 ) -> Dict | None:
     try:
-        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(
-            and_(Blog.rid == rid, Blog.state == state_)
-        )
+        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(Blog.rid == rid, Blog.state == state_)
         if cursor is not None:
             stmt = stmt.where(Blog.id < cursor)
 
@@ -198,9 +247,9 @@ async def query_user_blogs_cursor(
         items = [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "music": music_map.get(int(row.id)),
             }
@@ -218,7 +267,7 @@ async def query_user_blogs_cursor(
         return None
 
 
-# TODO:每日推荐
+# 每日推荐
 async def query_daily_blog(db: db_dependency) -> list[Dict] | None:
     try:
         stmt = (select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at, User.username)
@@ -271,9 +320,9 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
         return [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
@@ -286,9 +335,9 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
 
 
 async def query_hot_blog_cursor(
-    cursor: int | None,
-    limit: int,
-    db: db_dependency,
+        cursor: int | None,
+        limit: int,
+        db: db_dependency,
 ) -> Dict | None:
     try:
         like_subq = (
@@ -333,9 +382,9 @@ async def query_hot_blog_cursor(
         items = [
             {
                 "id": row.id,
-                "cover": row.cover,
+                "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
-                "type": row.type,
+                "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
@@ -379,3 +428,32 @@ async def file_md5(upload_file: UploadFile) -> str:
 async def query_by_hash(md5: str, db: db_dependency) -> str | None:
     stmt = select(Gallery.url).filter(Gallery.md5 == md5).limit(1)
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+# 软删除博客
+async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
+    stmt = update(Blog).where(Blog.id == blog_id, Blog.rid == rid).values(state="delete")
+    try:
+        res = await db.execute(stmt)
+        await db.commit()
+        if res.rowcount > 0:
+            return True
+        return False
+    except Exception as e:
+        await db.rollback()
+        print(e)
+        return False
+
+
+async def _publish_draft(blog_id: int, rid: int, db: db_dependency) -> bool:
+    stmt = update(Blog).values(state='publish').where(Blog.id == blog_id, Blog.rid == rid)
+    try:
+        res = await db.execute(stmt)
+        await db.commit()
+        if res.rowcount > 0:
+            return True
+        return False
+    except Exception as e:
+        await db.rollback()
+        print(e)
+        return False
