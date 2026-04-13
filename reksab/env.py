@@ -1,5 +1,7 @@
+import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, create_engine
 from sqlalchemy import pool
 
@@ -9,10 +11,16 @@ from src.config import settings
 from src.database import Base
 import src.orm.model
 
+# 环境自动识别
+# ENV = os.getenv("ENV", "dev")
+# if ENV == "prod":
+#     load_dotenv(".env.prod")
+# else:
+#     load_dotenv(".env")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-# env传值
+# env传值 # TODO:aburl = os.getenv("PGDB_URL")
 aburl = settings.pgdb_ab_url
 config = context.config
 
@@ -26,6 +34,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
