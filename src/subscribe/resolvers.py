@@ -168,6 +168,7 @@ class Subscription:
                     continue
 
                 for _, messages in entries:
+                    # msg_id 就是 1775123什么鬼的那一坨，fields是value，存着事件流数据
                     for msg_id, fields in messages:
                         last_id = msg_id
                         # 持久化游标，保证离线重连后可从断点继续读取。
