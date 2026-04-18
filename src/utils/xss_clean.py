@@ -18,6 +18,7 @@ ALLOWED_ATBS: Dict[str, List[str]] = {
     "table": ["width", "border"],
     "code": ["class"],
     "p": ["style"],
+    "iframe": ["frameborder", "border", "marginwidth", "marginheight", "width", "height", "src"]
 }
 
 
