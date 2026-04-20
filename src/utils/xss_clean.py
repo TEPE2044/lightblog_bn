@@ -27,6 +27,7 @@ async def clean_content(content: str) -> str:
         content,
         tags=ALLOWED_ELMS,
         attributes=ALLOWED_ATBS,
+        # css_sanitizer= 少了css
         strip=True,
         strip_comments=True
     )
