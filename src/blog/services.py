@@ -145,20 +145,20 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
             ).returning(Blog)
     else:
         stmt = (
-            prt(Blog).values(id=blog_id, title=data.title, content=data.content, cover=data.cover)
-            .on_conflict_do_update(
-                index_elements=["id"],
-                set_={
-                    'title': data.title,
-                    'content': data.content,
-                    'updated_at': func.now()
-                },
-                where=and_(Blog.rid == rid, Blog.state != BlogStateEnum.delete)
+            update(Blog)
+            .where(Blog.id == blog_id, Blog.rid == rid, Blog.state != BlogStateEnum.delete)
+            .values(
+                title=data.title,
+                content=data.content,
+                cover=data.cover,
+                updated_at=func.now(),
             )
             .returning(Blog)
         )
 
-    blog = (await db.execute(stmt)).scalar_one()
+    blog = (await db.execute(stmt)).scalar_one_or_none()
+    if blog is None:
+        raise ValueError("blog not found or not owned by current user")
     blog_id = blog.id
 
     # 删除旧的标签关联
