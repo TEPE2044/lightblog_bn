@@ -1,22 +1,632 @@
-''' new method
-isPhone = await phone_validation(front.phone)
-isRecent = await recent(front.phone, rd)
-await rd.setex(front.phone, 300, front.code)
+# -*- coding: utf-8 -*-
+import uuid
+from datetime import datetime
+from typing import List
 
-if isRecent is True:
-    token = await create_test_token(front.phone)
-    user_info = await query_user_basic(front.phone, db)
-    return {"status": "200", "msg": "最近登录的", "token": token, "userinfo": user_info}
+from sqlalchemy import String, Enum, DateTime, func, text, Integer, Identity, TEXT, Table, Column, \
+    ForeignKey, Boolean, \
+    true, JSON, CheckConstraint, UniqueConstraint, Index, Text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用 PG 的 UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from src.database import Base
+from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum, MusicRelatedEnum, \
+    MusicTypeEnum
 
-checks = [
-    (not isPhone, HTTPException(status_code=400, detail="手机号格式错误")),
-    (front.iaccept is False, HTTPException(status_code=400, detail="用户未同意协议")),
-    (front.code != "1234", HTTPException(status_code=400, detail="验证码无效或已过期")),
-]
 
-for condition, exception in checks:
-    if condition:
-        raise exception
+class User(Base):
+    __tablename__ = "users"
 
-print(front.code == "1234")
-'''
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        comment="用户UUID"
+    )
+
+    reks_id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
+    phone: Mapped[str] = mapped_column(
+        String(20),
+        unique=True,
+        index=True,
+        nullable=False,
+        comment="手机号"
+    )
+
+    hashed_password: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="哈希密码"
+    )
+
+    username: Mapped[str] = mapped_column(
+        String(35),
+        index=True,
+        nullable=False,
+        comment="用户名"
+    )
+
+    gender: Mapped[GenderEnum] = mapped_column(
+        Enum(GenderEnum),
+        default=GenderEnum.unknown,
+        server_default='unknown',
+        nullable=False,
+        comment="0未知 1男 2女"
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(320),
+        unique=True,
+        index=True,
+        nullable=True,
+        comment="电子邮箱"
+    )
+
+    type: Mapped[UserTypeEnum] = mapped_column(
+        Enum(UserTypeEnum),
+        default=UserTypeEnum.ordinary,
+        nullable=False,
+        comment="0用户 1管理员 2超管"
+    )
+
+    status: Mapped[StatusEnum] = mapped_column(
+        Enum(StatusEnum),
+        default=StatusEnum.active,
+        nullable=False,
+        comment="0正常 1危险 2封禁 3注销"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=True,
+        comment="软删除时间 NULL=未删除"
+    )
+
+    avatar: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="用户头像URL"
+    )
+
+    signature: Mapped[str | None] = mapped_column(
+        String(255),
+        server_default='这个人很懒，什么都没留下',
+        nullable=False,
+        comment="用户个性签名"
+    )
+
+    playlists: Mapped[list["PlayList"]] = relationship(back_populates='creator')
+
+    contacts: Mapped[list["Contact"]] = relationship(
+        "Contact", foreign_keys="Contact.user_id", back_populates="user"
+    )
+    followers: Mapped[list["Contact"]] = relationship(
+        "Contact", foreign_keys="Contact.followed_user_id", back_populates="followed_user"
+    )
+    conversations_as_a: Mapped[list["Conversation"]] = relationship(
+        "Conversation", foreign_keys="Conversation.user_a_id", back_populates="user_a"
+    )
+    conversations_as_b: Mapped[list["Conversation"]] = relationship(
+        "Conversation", foreign_keys="Conversation.user_b_id", back_populates="user_b"
+    )
+    sent_messages: Mapped[list["Message"]] = relationship(
+        "Message", back_populates="sender"
+    )
+    blog_likes: Mapped[list["BlogLike"]] = relationship(
+        "BlogLike", back_populates="user"
+    )
+    blog_favorites: Mapped[list["BlogFavorite"]] = relationship(
+        "BlogFavorite", back_populates="user"
+    )
+    music_favorites: Mapped[list["MusicFavorite"]] = relationship(
+        "MusicFavorite", back_populates="user"
+    )
+
+
+# 关系表无需新建类 - Tag 和 Blog n*n
+# 没业务字段用 Table，有业务字段就建类
+# 显式  Table  定义，没有对应的 ORM 类, 查询时使用.c
+blogs_tags = Table(
+    "blogs_tags",
+    Base.metadata,
+    Column(
+        "blog_id",
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+        comment="Blog ID"
+    ),
+    Column(
+        "tag_id",
+        ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+        comment="Tag ID"
+    ),
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="标签id"
+    )
+
+    name: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+
+    blogs: Mapped[List["Blog"]] = relationship(
+        secondary=blogs_tags,
+        back_populates="tags"
+    )
+
+
+class Blog(Base):
+    __tablename__ = "blogs"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="博客id"
+    )
+
+    type: Mapped[BlogEnum] = mapped_column(
+        Enum(BlogEnum),
+        default=BlogEnum.blog,
+        nullable=False,
+        comment="0音乐博客 1博客 2通知"
+    )
+
+    state: Mapped[BlogStateEnum] = mapped_column(
+        Enum(BlogStateEnum),
+        default=BlogStateEnum.publish,
+        nullable=False,
+        comment="0草稿 1正常 2已删除 3被封禁"
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        comment="博客标题"
+    )
+
+    content: Mapped[text] = mapped_column(
+        TEXT,
+        nullable=False,
+        comment="博客内容"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
+    cover: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default='["https://picsum.photos/seed/picsum/200/300"]',
+        comment="封面URL集合"
+    )
+
+    # 外键
+    tags: Mapped[List[Tag]] = relationship(
+        secondary=blogs_tags,
+        back_populates="blogs"
+    )
+    likes: Mapped[list["BlogLike"]] = relationship(
+        "BlogLike", back_populates="blog", cascade="all, delete-orphan"
+    )
+    favorites: Mapped[list["BlogFavorite"]] = relationship(
+        "BlogFavorite", back_populates="blog", cascade="all, delete-orphan"
+    )
+
+
+class Gallery(Base):
+    __tablename__ = 'gallery'
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="图片id"
+    )
+
+    type: Mapped[ImgEnum] = mapped_column(
+        Enum(ImgEnum),
+        default=ImgEnum.file,
+        nullable=False,
+        comment="0文件图片 1普通图片"
+    )
+
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+
+    url: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="图片链接"
+    )
+
+    alt: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        comment="图片描述"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+
+    md5: Mapped[str | None] = mapped_column(
+        String(32),
+        index=True,
+        unique=True,
+        nullable=True,
+        comment="文件哈希"
+    )
+
+
+class Music(Base):
+    __tablename__ = 'music'
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="音频id"
+    )
+    name: Mapped[str] = mapped_column(
+        String(100), index=True, nullable=False, comment="音频名称"
+    )
+    rid: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(User.reks_id),
+        index=True,
+        nullable=False,
+        comment="用户通用id"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="创建时间"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间"
+    )
+    state: Mapped[BlogStateEnum] = mapped_column(
+        Enum(BlogStateEnum, native_enum=False),
+        default=BlogStateEnum.publish,
+        nullable=True,
+        comment="0草稿 1发布 2已删除 3被封禁"
+    )
+    original: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=true(),
+        nullable=False,
+        comment="是否原创"
+    )
+    type: Mapped[MusicTypeEnum] = mapped_column(
+        Enum(MusicTypeEnum, native_enum=False),
+        default=MusicTypeEnum.material,
+        nullable=False,
+        comment="素材0 歌曲1"
+    )
+    related: Mapped[MusicRelatedEnum] = mapped_column(
+        Enum(MusicRelatedEnum, native_enum=False),
+        default=MusicRelatedEnum.normal,
+        nullable=False,
+        comment="普通用户0 官方（管理员）1"
+    )
+    cover: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        server_default='https://picsum.photos/seed/picsum/200/300',
+        comment="封面URL"
+    )
+    audio: Mapped[str] = mapped_column(String, nullable=True, comment="音频URL")
+    desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
+    favorites: Mapped[list["MusicFavorite"]] = relationship(
+        "MusicFavorite", back_populates="music", cascade="all, delete-orphan"
+    )
+
+
+class Blog_Music(Base):
+    __tablename__ = "blogs_music"
+    blog_id: Mapped[int] = mapped_column(
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    music_id: Mapped[int] = mapped_column(
+        ForeignKey("music.id", ondelete="RESTRICT"),
+        primary_key=True
+    )
+    sort_order: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class BlogLike(Base):
+    __tablename__ = "blog_likes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "blog_id", name="uq_blog_likes_user_blog"),
+        Index("ix_blog_likes_blog_created", "blog_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="点赞记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="点赞用户通用id"
+    )
+
+    blog_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被点赞博客id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="点赞时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="blog_likes",
+    )
+
+    blog: Mapped["Blog"] = relationship(
+        "Blog",
+        back_populates="likes",
+    )
+
+
+class BlogFavorite(Base):
+    __tablename__ = "blog_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "blog_id", name="uq_blog_favorites_user_blog"),
+        Index("ix_blog_favorites_blog_created", "blog_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="博客收藏记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="收藏用户通用id"
+    )
+
+    blog_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("blogs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被收藏博客id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="收藏时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="blog_favorites",
+    )
+
+    blog: Mapped["Blog"] = relationship(
+        "Blog",
+        back_populates="favorites",
+    )
+
+
+class MusicFavorite(Base):
+    __tablename__ = "music_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "music_id", name="uq_music_favorites_user_music"),
+        Index("ix_music_favorites_music_created", "music_id", text("created_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="音乐收藏记录id"
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="收藏用户通用id"
+    )
+
+    music_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("music.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被收藏音乐id"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="收藏时间"
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="music_favorites",
+    )
+
+    music: Mapped["Music"] = relationship(
+        "Music",
+        back_populates="favorites",
+    )
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "followed_user_id", name="uq_contacts_pair"),
+        CheckConstraint("user_id <> followed_user_id", name="ck_contacts_not_self"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID,
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        comment="联系人记录UUID",
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="关注者通用ID(reks_id)",
+    )
+
+    followed_user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="被关注者通用ID(reks_id)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="关注时间",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+        comment="更新时间",
+    )
+
+    last_read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="关注动态已读游标时间",
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="contacts",
+    )
+
+    followed_user: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[followed_user_id],
+        back_populates="followers",
+    )

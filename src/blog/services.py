@@ -152,7 +152,8 @@ async def create_or_update_blog_core(data: BlogData, rid: int, blog_id: int, typ
                     'title': data.title,
                     'content': data.content,
                     'updated_at': func.now()
-                }
+                },
+                where=and_(Blog.rid == rid, Blog.state != BlogStateEnum.delete)
             )
             .returning(Blog)
         )
