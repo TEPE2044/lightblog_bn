@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # 数据库层仍用
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 from src.orm import UserTypeEnum, StatusEnum, GenderEnum, ImgEnum, BlogStateEnum, BlogEnum, MusicRelatedEnum, \
-    MusicTypeEnum
+    MusicTypeEnum, VisitEnum
 
 
 class User(Base):
@@ -819,4 +819,62 @@ class Message(Base):
     sender: Mapped["User"] = relationship(
         "User",
         back_populates="sent_messages",
+    )
+
+
+class UserSettings(Base):
+    __tablename__ = "usersettings"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Identity(start=1, increment=1, cycle=False),
+        unique=True,
+        index=True,
+        nullable=False,
+        primary_key=True,
+        comment="用户设置id",
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+        comment="用户id",
+    )
+
+    default_visibility: Mapped[VisitEnum] = mapped_column(
+        Enum(VisitEnum),
+        default=VisitEnum.public,
+        nullable=False,
+        comment="全局默认可见性",
+    )
+
+    home_visibility: Mapped[VisitEnum] = mapped_column(
+        Enum(VisitEnum),
+        default=VisitEnum.public,
+        nullable=False,
+        comment="我的主页可见性",
+    )
+
+    posts_visibility: Mapped[VisitEnum] = mapped_column(
+        Enum(VisitEnum),
+        default=VisitEnum.public,
+        nullable=False,
+        comment="我的发布可见性",
+    )
+
+    favorites_visibility: Mapped[VisitEnum] = mapped_column(
+        Enum(VisitEnum),
+        default=VisitEnum.public,
+        nullable=False,
+        comment="我的收藏可见性",
+    )
+
+    updated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="更新时间",
     )

@@ -52,3 +52,9 @@ class MusicTypeEnum(int, Enum):
 class MusicRelatedEnum(int, Enum):
     normal = 0
     official = 1
+
+
+class VisitEnum(int, Enum):
+    public = 0
+    follower = 1
+    private = 2
