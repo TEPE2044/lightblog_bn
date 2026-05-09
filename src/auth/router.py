@@ -8,7 +8,8 @@ from src.auth import ans
 from src.auth.schemas import SMSFormData, PhoneFormData, AccountFormData, ResetData
 from src.auth.services import send_sms_code_async, is_code_valid, phone_validation, \
     recent, is_user_exists, register_new_user, account_validation, user_login, password_strength_validation, \
-    hash_password, store_hashed_password, login_out, set_email, check_all_phones, confirm_reset_phone, change_phone
+    hash_password, store_hashed_password, login_out, set_email, check_all_phones, confirm_reset_phone, change_phone, \
+    login_core
 from src.database import db_dependency, rd_dependency
 from src.deps import limiter
 from src.orm.model import User
@@ -21,7 +22,6 @@ from src.utils.jwt_client import create_all_tokens, create_temp_code
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
 
-
 @authRouter.post("/login-by-account", summary="账号登录")
 async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dependency):
     # 检查账号格式 + 校验是否有账号
@@ -29,7 +29,7 @@ async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dep
 
     # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
     if is_account is True:
-        isRight = await user_login(front.account, front.password, db)
+        isRight = await login_core(front, db)
         if isRight is False:
             raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
         else:
@@ -256,3 +256,20 @@ async def destroy_account(phone: auth_phone, db: db_dependency):
     except Exception as e:
         await db.rollback()
         raise HTTPException(400, f"注销失败:{e}")
+
+
+@authRouter.post("/login-by-account-admin", summary="管理员账号登录")
+async def login_by_account_admin(front: AccountFormData, db: db_dependency, rd: rd_dependency):
+    # 检查账号格式 + 校验是否有账号
+    is_account = await account_validation([front.account, front.password])
+
+    # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
+    if is_account is True:
+        isRight = await login_core(front, db)
+        if isRight is False:
+            raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
+        else:
+            tokens = await create_all_tokens(front.account, rd)
+            return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
+    else:
+        raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")

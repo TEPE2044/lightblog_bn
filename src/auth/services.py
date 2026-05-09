@@ -8,7 +8,7 @@ import bcrypt
 from sqlalchemy import select, exists, insert, update
 from sqlalchemy.exc import IntegrityError
 
-from src.auth.schemas import ResetData
+from src.auth.schemas import ResetData, AccountFormData
 from src.config import settings
 from src.database import db_dependency, rd_dependency
 from src.orm.model import User
@@ -128,6 +128,34 @@ async def store_hashed_password(phone: str, hashed: bytes, db: db_dependency) ->
         await db.execute(stmt)
         await db.commit()
         return True
+    except IntegrityError:
+        await db.rollback()
+        return False
+
+# TODO:实现tokens分域管理
+async def login_core(args: AccountFormData, db: db_dependency):
+    try:
+        stmt = select(User.type).where(User.phone == args.phone)
+        is_admin = (await db.execute(stmt)).scalar_one_or_none()
+        if is_admin == 'admin' or is_admin == 'supre':
+            await admin_login(args.account, args.password, db)
+        else:
+            await user_login(args.account, args.password, db)
+    except Exception as e:
+        print(e)
+        await db.rollback()
+
+
+# 管理员只能登管理系统，用户只能登录客户端
+async def admin_login(phone: str, psw: str, db: db_dependency) -> bool:
+    try:
+        stmt = select(User).where(User.phone == phone)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        # print(user.hashed_password)
+        if user.hashed_password is None:
+            return False
+        return await check_password(psw, user.hashed_password, db)
     except IntegrityError:
         await db.rollback()
         return False
