@@ -1,15 +1,17 @@
 from functools import lru_cache
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List
 from fastapi import Depends, Request
 from jose import jwt
 from redis.asyncio import Redis
 from sqlalchemy import select, update, case, and_, or_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import dependency
 
 from src.config import settings
 from src.database import rd_dependency, db_dependency
 
-from src.orm.model import User
+from src.orm.model import User, UserSettings
+from src.user.schemas import VisitData
 from src.utils.aes_client import decrypt_phone
 from src.utils.jwt_client import ALGORITHM
 
@@ -33,7 +35,7 @@ async def auth_current_user(request: Request, rd: rd_dependency) -> bool | str:
         return False
 
     phone_in_jwt: str = await decrypt_phone(data.get("sub"))
-    phone_in_redis = await rd.get(f"sess:{rcode}")
+    phone_in_redis = await rd.get(f"user:sess:{rcode}")
 
     compare_phone = str(phone_in_jwt) == str(phone_in_redis)
     # print(compare_phone, phone_in_jwt, phone_in_redis)
@@ -136,3 +138,26 @@ async def query_safety_level(db: db_dependency, phone: str) -> str:
 
     strength = (await db.execute(stmt)).scalar()
     return strength or "weak"  # 处理 None 的情况
+
+
+async def query_user_visibility(db: db_dependency, phone: str) -> List[str]:
+    stmt = select(UserSettings).join(User, UserSettings.user_id == User.reks_id).where(User.phone == phone)
+    res = (await db.execute(stmt)).scalar_one_or_none()
+    print(res)
+    return res
+
+
+async def query_user_visibility_by_id(db: db_dependency, id: int) -> List[str]:
+    stmt = select(UserSettings).where(UserSettings.user_id == id)
+    res = (await db.execute(stmt)).scalar_one_or_none()
+    print(res)
+    return res
+
+
+async def update_visits(db: db_dependency, data: VisitData, phone: str):
+    rid = (await db.execute(query_user_rid(phone, db))).scalar_one_or_none()
+    stmt = insert(UserSettings).values(user_id=rid, default_visibility=data.default_v, home_visibility=data.home_v,
+                                       posts_visibility=data.post_v, favorites_visibility=data.fav_v)
+    res = (await db.execute(stmt)).mappings().all()
+    print(res)
+    return res

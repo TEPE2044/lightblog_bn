@@ -30,20 +30,38 @@ async def create_reks_code() -> str:
 
 # 这里存在bug，假如有贱狗在前端删了我的rcode和payload，我redis还会残留 fixed
 # 目前仅支持单点登录,但是JWT没法踢人下线，但是老token一旦请求就会显示过期
-async def create_all_tokens(phone: str, rd: rd_dependency) -> dict:
+async def create_user_tokens(phone: str, rd: rd_dependency) -> dict:
     # 生成token返回前端
     # 先把钥匙找出来删掉
     try:
-        old_code = await rd.get(f"pre_code:{phone}")
-        await rd.delete(f"sess:{old_code}")
+        old_code = await rd.get(f"user:pre_code:{phone}")
+        await rd.delete(f"user:sess:{old_code}")
         print("已找到令牌并删除")
     except Exception as e:
         print("该手机号无旧令牌", e)
     payload = await create_access_token(phone)
     reks_code = await create_reks_code()
-    await rd.setex(f"sess:{reks_code}", ACCESS_TOKEN_EXPIRE_MINUTES, phone)
+    await rd.setex(f"user:sess:{reks_code}", ACCESS_TOKEN_EXPIRE_MINUTES, phone)
     # 反向设置一把钥匙，在下次登录的时候，找到这把钥匙并删除
-    await rd.setex(f"pre_code:{phone}", ACCESS_TOKEN_EXPIRE_MINUTES, reks_code)
+    await rd.setex(f"user:pre_code:{phone}", ACCESS_TOKEN_EXPIRE_MINUTES, reks_code)
+    return {
+        "payload": payload,
+        "rcode": reks_code
+    }
+
+
+async def create_admin_tokens(phone: str, rd: rd_dependency) -> dict:
+    try:
+        old_code = await rd.get(f"admin_pre_code:{phone}")
+        await rd.delete(f"admin:sess:{old_code}")
+        print("已找到令牌并删除")
+    except Exception as e:
+        print("该手机号无旧令牌", e)
+    payload = await create_access_token(phone)
+    reks_code = await create_reks_code()
+    await rd.setex(f"admin:sess:{reks_code}", ACCESS_TOKEN_EXPIRE_MINUTES, phone)
+    # 反向设置一把钥匙，在下次登录的时候，找到这把钥匙并删除
+    await rd.setex(f"admin:pre_code:{phone}", ACCESS_TOKEN_EXPIRE_MINUTES, reks_code)
     return {
         "payload": payload,
         "rcode": reks_code

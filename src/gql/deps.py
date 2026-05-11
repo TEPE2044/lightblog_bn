@@ -47,7 +47,7 @@ async def auth_current_user(
         return False
 
     phone_in_jwt: str = await decrypt_phone(data.get("sub"))
-    phone_in_redis = await rd.get(f"sess:{rcode}")
+    phone_in_redis = await rd.get(f"user:sess:{rcode}")
 
     compare_phone = str(phone_in_jwt) == str(phone_in_redis)
     return phone_in_jwt if compare_phone else False

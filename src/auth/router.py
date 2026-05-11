@@ -17,7 +17,7 @@ from src.user.services import auth_phone, query_user_rid
 from src.auth.services import send_html_mail
 from src.utils.Rback import rback
 
-from src.utils.jwt_client import create_all_tokens, create_temp_code
+from src.utils.jwt_client import create_temp_code, create_user_tokens, create_admin_tokens
 
 authRouter = APIRouter(prefix="/auth", tags=['登录模块'])
 
@@ -33,7 +33,7 @@ async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dep
         if isRight is False:
             raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
         else:
-            tokens = await create_all_tokens(front.account, rd)
+            tokens = await create_user_tokens(front.account, rd)
             return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
     else:
         raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
@@ -62,11 +62,11 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
     isRecent = await recent(front.phone, rd)
     # 避免键值对堆积
     await rd.delete(front.phone)
-    await rd.setex(front.phone, 300, front.code)
+    await rd.setex(f"timecode:{front.phone}", 300, front.code)
     if isPhone is False:
         raise HTTPException(status_code=400, detail="手机号格式错误")
     if isRecent is True:
-        tokens = await create_all_tokens(front.phone, rd)
+        tokens = await create_user_tokens(front.phone, rd)
         # user_info = await query_user(front.phone, db)
         return {"status": "200", "msg": "登录成功", "tokens": tokens}
 
@@ -84,12 +84,12 @@ async def login_by_phone(front: PhoneFormData, db: db_dependency, rd: rd_depende
     print(isUser, "用户存在性检查完毕")
     if isUser is True:
         # 生成token返回前端
-        tokens = await create_all_tokens(front.phone, rd)
+        tokens = await create_user_tokens(front.phone, rd)
         return {"status": "200", "msg": "登录成功", "tokens": tokens}
     else:
         # 注册新用户
         await register_new_user(front.phone, db)
-        tokens = await create_all_tokens(front.phone, rd)
+        tokens = await create_user_tokens(front.phone, rd)
         return {"status": "201", "msg": "新用户注册成功，请完善资料", "tokens": tokens, "sign": "new"}
         # 生成token返回前端
 
@@ -269,7 +269,7 @@ async def login_by_account_admin(front: AccountFormData, db: db_dependency, rd: 
         if isRight is False:
             raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
         else:
-            tokens = await create_all_tokens(front.account, rd)
+            tokens = await create_admin_tokens(front.account, rd)
             return {"status": "200", "msg": "账号登录成功", "tokens": tokens}
     else:
         raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")

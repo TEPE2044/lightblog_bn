@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from src.auth.schemas import ResetData, AccountFormData
 from src.config import settings
 from src.database import db_dependency, rd_dependency
-from src.orm.model import User
+from src.orm.model import User, UserSettings
 from src.utils.aliyun_client import create_client
 from alibabacloud_dypnsapi20170525.models import SendSmsVerifyCodeRequest, CheckSmsVerifyCodeRequest
 from alibabacloud_tea_util.models import RuntimeOptions
@@ -83,10 +83,20 @@ async def is_user_exists(phone: str, db: db_dependency) -> bool:
 
 
 async def register_new_user(phone: str, db: db_dependency) -> bool:
-    new_user = insert(User).values(phone=phone, username=f"探星使者_{random.randint(10000, 99999)}")
+    new_user = (
+        insert(User)
+        .values(phone=phone, username=f"探星使者_{random.randint(10000, 99999)}")
+        .returning(User.reks_id)
+    )
     try:
         print("-------")
-        await db.execute(new_user)
+        res = await db.execute(new_user)
+        reks_id = res.scalar_one_or_none()
+        if reks_id is None:
+            await db.rollback()
+            return False
+
+        await db.execute(insert(UserSettings).values(user_id=reks_id))
         await db.commit()
         return True
     except IntegrityError:
@@ -95,7 +105,7 @@ async def register_new_user(phone: str, db: db_dependency) -> bool:
 
 
 async def recent(phone: str, rd: rd_dependency) -> bool:
-    ok = await rd.exists(phone)
+    ok = await rd.exists(f"timecode:{phone}")
     # test passed
     # print("手机号", type(phone), phone)
     # print("redis", bool(ok))
@@ -132,7 +142,7 @@ async def store_hashed_password(phone: str, hashed: bytes, db: db_dependency) ->
         await db.rollback()
         return False
 
-# TODO:实现tokens分域管理
+
 async def login_core(args: AccountFormData, db: db_dependency):
     try:
         stmt = select(User.type).where(User.phone == args.phone)
@@ -181,7 +191,7 @@ async def login_out(request, rd: rd_dependency) -> bool:
     if not header_rcode.lower().startswith("bearer "):
         return False
     rcode = header_rcode[7:]
-    return bool(await rd.delete(f"sess:{rcode}"))
+    return bool(await rd.delete(f"user:sess:{rcode}"))
 
 
 # 登录

@@ -1,20 +1,18 @@
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Depends, Security
 from fastapi.security import HTTPBearer, APIKeyHeader
 
 from src.database import db_dependency, rd_dependency
-from src.user.schemas import UserProfile
+from src.user.schemas import UserProfile, VisitData
 from src.user.services import (
     query_user,
     query_user_by_rid,
     auth_phone,
     update_user_profile,
-    query_safety_level,
+    query_safety_level, query_user_visibility, query_user_visibility_by_id, update_visits,
 )
+from src.utils.Rback import rback
 
 userRouter = APIRouter(prefix="/user", tags=['用户模块'])
-
 security = HTTPBearer()
 x_payload = APIKeyHeader(name="X-Payload")
 
@@ -102,3 +100,52 @@ async def post_user_profile(db: db_dependency, phone: auth_phone, data: UserProf
     except Exception as e:
         print(e)
         raise HTTPException(status_code=400, detail="用户信息设置失败")
+
+
+# 获取当前用户的访问状态
+@userRouter.get("/visit", summary="获取当前用户访问状态")
+async def get_user_visibility(db: db_dependency, phone: auth_phone):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
+    try:
+        res = await query_user_visibility(db, phone)
+        print(res)
+        if res:
+            return rback(200, '获取成功', res)
+        else:
+            raise HTTPException(404, '无该用户信息')
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@userRouter.get("/visit/{id}", summary="获取某个用户的访问状态")
+async def get_user_visibility_by_id(id: int, db: db_dependency):
+    try:
+        res = await query_user_visibility_by_id(db, id)
+        if res:
+            return rback(200, "获取成功", res)
+        else:
+            raise HTTPException(404, "不存在该用户")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@userRouter.post("/visit/update", summary="更新访问状态")
+async def update_visit(db: db_dependency, phone: auth_phone, data: VisitData):
+    if phone is False:
+        raise HTTPException(status_code=401, detail="登陆状态已失效，请重新登录")
+    try:
+        res = await update_visits(db, data, phone)
+        if res:
+            return rback(200, "获取成功", res)
+        else:
+            raise HTTPException(404, "不存在该用户")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
