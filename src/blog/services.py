@@ -214,7 +214,9 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
                 "title": blog.title,
                 "type": int(blog.type),
                 "created_at": blog.created_at,
-                "music": music_map.get(int(blog.id))
+                "music": music_map.get(int(blog.id)),
+                "author": blog.username,
+                "avatar": blog.avatar
             }
             for blog in blogs
         ]
@@ -233,7 +235,8 @@ async def query_user_blogs_cursor(
         db: db_dependency,
 ) -> Dict | None:
     try:
-        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(Blog.rid == rid, Blog.state == state_)
+        stmt = select(Blog.id, Blog.cover, Blog.title, Blog.type, Blog.created_at).where(Blog.rid == rid,
+                                                                                         Blog.state == state_)
         if cursor is not None:
             stmt = stmt.where(Blog.id < cursor)
 
@@ -308,8 +311,11 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
                 Blog.title,
                 Blog.type,
                 Blog.created_at,
+                User.username,
+                User.avatar,
+                User.reks_id,
                 func.coalesce(like_subq.c.like_count, 0).label("like_count"),
-            )
+            ).join(User, User.reks_id == Blog.rid)
             .outerjoin(like_subq, like_subq.c.blog_id == Blog.id)
             .where(Blog.state == BlogStateEnum.publish)
             .order_by(func.coalesce(like_subq.c.like_count, 0).desc(), Blog.created_at.desc())
@@ -327,6 +333,9 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
+                "author": row.username,
+                "avatar": row.avatar,
+                "user_id": row.reks_id
             }
             for row in rows
         ]
@@ -358,7 +367,10 @@ async def query_hot_blog_cursor(
                 Blog.type,
                 Blog.created_at,
                 func.coalesce(like_subq.c.like_count, 0).label("like_count"),
-            )
+                User.username,
+                User.avatar,
+                User.reks_id
+            ).join(User, User.reks_id == Blog.rid)
             .outerjoin(like_subq, like_subq.c.blog_id == Blog.id)
             .where(Blog.state == BlogStateEnum.publish)
         )
@@ -385,10 +397,13 @@ async def query_hot_blog_cursor(
                 "id": row.id,
                 "cover": _normalize_cover_list(row.cover),
                 "title": row.title,
+                "author": row.author,
                 "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
                 "music": music_map.get(int(row.id)),
+                "avatar": row.avatar,
+                "user_id": row.reks_id
             }
             for row in page_rows
         ]
