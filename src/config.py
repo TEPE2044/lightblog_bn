@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     pgdb_url: str
     pgdb_ab_url: str
     pgdb_password: str
+    neon_url: str
+    neon_ab_url: str
+    neon_password: str
     rd_url: str
     rd_local_url: str
     rd_train_url: str

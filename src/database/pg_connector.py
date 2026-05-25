@@ -2,7 +2,12 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.config import settings
 
-engine = create_async_engine(settings.pgdb_url, echo=False, pool_pre_ping=True, pool_recycle=3600, pool_size=2,
+# SERVER
+# engine = create_async_engine(settings.pgdb_url, echo=False, pool_pre_ping=True, pool_recycle=3600, pool_size=2,
+#                          max_overflow=5)  # echo=True 打印SQL日志
+
+# NEON
+engine = create_async_engine(settings.neon_url, echo=False, pool_pre_ping=True, pool_recycle=3600, pool_size=2,
                              max_overflow=5)  # echo=True 打印SQL日志
 # SessionLocal 会话工厂，创建会话
 SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession, autocommit=False,
