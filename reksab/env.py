@@ -11,18 +11,11 @@ from src.config import settings
 from src.database import Base
 import src.orm.model
 
-# 环境自动识别
-# ENV = os.getenv("ENV", "dev")
-# if ENV == "prod":
-#     load_dotenv(".env.prod")
-# else:
-#     load_dotenv(".env")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 # env传值 # TODO:aburl = os.getenv("PGDB_URL")
-# TODO:PROD aburl = settings.pgdb_ab_url
-aburl = settings.neon_ab_url
+aburl = settings.pgdb_ab_url
 config = context.config
 
 # Interpret the config file for Python logging.

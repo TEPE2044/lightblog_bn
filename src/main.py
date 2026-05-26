@@ -4,16 +4,6 @@ import fastapi_cdn_host
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
-import sys
-
-# Ensure console output can handle Unicode on Windows.
-try:
-    if sys.stdout and sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-        sys.stdout.reconfigure(encoding="utf-8")
-    if sys.stderr and sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
-        sys.stderr.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 from src import custom_openapi
 from src.auth.router import authRouter

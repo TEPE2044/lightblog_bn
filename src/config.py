@@ -4,16 +4,13 @@ from pydantic.v1 import BaseSettings
 
 # 定位到项目根目录（.env 所在）
 ROOT_DIR = Path(__file__).resolve().parent.parent
-env_file = ROOT_DIR / ".env"
+env_file = ROOT_DIR / ".env.dev"
 
 
 class Settings(BaseSettings):
     pgdb_url: str
     pgdb_ab_url: str
     pgdb_password: str
-    neon_url: str
-    neon_ab_url: str
-    neon_password: str
     rd_url: str
     rd_local_url: str
     rd_train_url: str
