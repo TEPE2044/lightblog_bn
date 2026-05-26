@@ -1,10 +1,25 @@
 # 全局配置
+import os
 from pathlib import Path
 from pydantic.v1 import BaseSettings
 
 # 定位到项目根目录（.env 所在）
 ROOT_DIR = Path(__file__).resolve().parent.parent
-env_file = ROOT_DIR / ".env.dev"
+
+APP_ENV = os.getenv("APP_ENV", "dev")
+# # env_file = ROOT_DIR / ".env"
+# env_list = [str(ROOT_DIR / ".env")]
+# od_env = ROOT_DIR / f".env.{APP_ENV}"
+# if od_env.exists():
+#     env_list.append(str(od_env))
+env_list = []
+env_specific = ROOT_DIR / f".env.{APP_ENV}"
+env_default = ROOT_DIR / ".env"
+
+if env_specific.exists():
+    env_list.append(str(env_specific))
+elif env_default.exists():
+    env_list.append(str(env_default))
 
 
 class Settings(BaseSettings):
@@ -40,7 +55,8 @@ class Settings(BaseSettings):
     # obs_region = str
 
     class Config:
-        env_file = env_file  # 告诉 pydantic 去加载 .env
+        # env_file = env_file  # 告诉 pydantic 去加载 .env
+        env_file = env_list
         case_sensitive = False  # 不区分大小写
 
 

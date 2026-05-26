@@ -1,5 +1,7 @@
 .env
 .env.dev
+.env.alpha
+.env.prod
 *.xml
 *.pyc
 __pycache__/

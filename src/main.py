@@ -17,6 +17,14 @@ from src.subscribe.resolvers import subscribeRouter
 from src.user.router import userRouter
 from src.music.router import musicRouter
 
+import os
+os.environ.setdefault("APP_ENV", "dev")  # 默认 dev，PyCharm 会覆盖
+
+# 现在导入 config，APP_ENV 已经就绪
+from src.config import settings
+print(f"!!! 当前环境: {os.environ.get('APP_ENV')}")
+# print(f"!!! 数据库: {settings.pgdb_url[:40]}")
+
 app = FastAPI(title='reksblog', openapi_url="/api/v1/openapi.json", docs_url="/api/v1/docs", redoc_url="/api/v1/redoc",
               version="0.5.0")
 

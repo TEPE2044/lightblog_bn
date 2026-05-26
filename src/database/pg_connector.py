@@ -1,10 +1,28 @@
 # 数据库相关
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.config import settings
+from sqlalchemy.pool import NullPool
 
-# SERVER
-engine = create_async_engine(settings.pgdb_url, echo=False, pool_pre_ping=True, pool_recycle=3600, pool_size=2,
+import os
+
+APP_ENV = str(os.environ.get('APP_ENV'))
+if APP_ENV == 'prod':
+    # SERVER
+    engine = create_async_engine(settings.pgdb_url, echo=False, pool_pre_ping=True, pool_recycle=3600, pool_size=2,
                              max_overflow=5)  # echo=True 打印SQL日志
+    print("连接正式环境数据库")
+else:
+    # SUPABASE
+    engine = create_async_engine(
+        settings.pgdb_url,
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        connect_args={
+            "statement_cache_size": 0,  # ← 新增：禁用 asyncpg prepared statement 缓存
+        },
+        poolclass=NullPool,  # ← 新增：禁用 SQLAlchemy 连接池，让 PgBouncer 或 asyncpg 自己管
+    )
 
 # SessionLocal 会话工厂，创建会话
 SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession, autocommit=False,
