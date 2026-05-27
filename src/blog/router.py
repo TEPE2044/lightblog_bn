@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request, background, BackgroundTasks
 from sqlalchemy import select, func
 
 from src.blog.schemas import BlogData, CursorPageInput
@@ -325,7 +325,7 @@ async def delete_blog(phone: auth_phone, db: db_dependency, blog_id: int):
 
 # 上传图片
 @blogRouter.post("/upload/img", summary="上传图片")
-async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = File(...)):
+async def upload_img(bg: BackgroundTasks, phone: auth_phone, db: db_dependency, img: UploadFile = File(...)):
     if phone is False:
         raise HTTPException(401, "当前登录状态已过期")
     if not (img.content_type.startswith("image/")):
@@ -342,26 +342,30 @@ async def upload_img(phone: auth_phone, db: db_dependency, img: UploadFile = Fil
         # 根据手机号获取用户的id
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         rid = await query_user_rid(phone, db)
+        # 后台异步偷跑
+        bg.add_task(img_upload, rid, img, timestamp)
+        # 获取连接
         href = await pre_img_link(rid, img, timestamp)
-        # 先行落库
-        await insert_into_gallery(rid, href, cur_md5, db)
-        # 后台异步
-        # background.add_task(img_upload, rid, img)
-        await img_upload(rid, img, timestamp)
-
+        # await img_upload(rid, img, timestamp)
         if href is None:
             return {
                 "errno": 1,
                 "message": HTTPException(400, "上传失败")
             }
         else:
-            return {
-                "errno": 0,
-                "data": {
-                    "url": href,
-                    "alt": f"reks-{href}"
+            try:
+                # 最后落库才对
+                await insert_into_gallery(rid, href, cur_md5, db)
+                return {
+                    "errno": 0,
+                    "data": {
+                        "url": href,
+                        "alt": f"reks-{href}"
+                    }
                 }
-            }
+            except Exception as e:
+                print(e)
+                await db.rollback()
     except Exception as e:
         print(e)
         raise HTTPException(400, "上传丢失/失败")
