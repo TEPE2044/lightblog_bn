@@ -177,8 +177,9 @@ async def user_login(phone: str, psw: str, db: db_dependency) -> bool:
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
         # print(user.hashed_password)
-        print(f"user是谁：{user}")
-        if user or user.hashed_password is None:
+        # print(f"user是谁：{user.username}")
+        if user.hashed_password and user.reks_id is None:
+            # print("调试user不存在")
             return False
         return await check_password(psw, user.hashed_password, db)
     except IntegrityError:
