@@ -145,7 +145,7 @@ async def store_hashed_password(phone: str, hashed: bytes, db: db_dependency) ->
 
 async def login_core(args: AccountFormData, db: db_dependency):
     try:
-        stmt = select(User.type).where(User.phone == args.phone)
+        stmt = select(User.type).where(User.phone == args.account)
         is_admin = (await db.execute(stmt)).scalar_one_or_none()
         if is_admin == 'admin' or is_admin == 'supre':
             return bool(await admin_login(args.account, args.password, db))
