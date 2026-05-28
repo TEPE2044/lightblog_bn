@@ -148,12 +148,12 @@ async def login_core(args: AccountFormData, db: db_dependency):
         stmt = select(User.type).where(User.phone == args.phone)
         is_admin = (await db.execute(stmt)).scalar_one_or_none()
         if is_admin == 'admin' or is_admin == 'supre':
-            await admin_login(args.account, args.password, db)
+            return bool(await admin_login(args.account, args.password, db))
         else:
-            await user_login(args.account, args.password, db)
+            return bool(await user_login(args.account, args.password, db))
     except Exception as e:
         print(e)
-        await db.rollback()
+        return False
 
 
 # 管理员只能登管理系统，用户只能登录客户端
@@ -163,11 +163,10 @@ async def admin_login(phone: str, psw: str, db: db_dependency) -> bool:
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
         # print(user.hashed_password)
-        if user.hashed_password is None:
+        if user or user.hashed_password is None:
             return False
         return await check_password(psw, user.hashed_password, db)
     except IntegrityError:
-        await db.rollback()
         return False
 
 
@@ -178,11 +177,11 @@ async def user_login(phone: str, psw: str, db: db_dependency) -> bool:
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
         # print(user.hashed_password)
-        if user.hashed_password is None:
+        print(f"user是谁：{user}")
+        if user or user.hashed_password is None:
             return False
         return await check_password(psw, user.hashed_password, db)
     except IntegrityError:
-        await db.rollback()
         return False
 
 

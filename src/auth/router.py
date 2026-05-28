@@ -29,8 +29,9 @@ async def login_by_account(front: AccountFormData, db: db_dependency, rd: rd_dep
 
     # 账号密码是否正确 没有直接返回失败：账号不存在 有账号：密码正确发token 错误返回失败
     if is_account is True:
-        isRight = await login_core(front, db)
-        if isRight is False:
+        # isRight = await login_core(front, db)
+        # print(f"----登录结果{isRight}")
+        if await login_core(front, db) is False:
             raise HTTPException(status_code=400, detail="账号不存在或账号信息错误")
         else:
             tokens = await create_user_tokens(front.account, rd)
