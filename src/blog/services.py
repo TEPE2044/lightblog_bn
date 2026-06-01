@@ -21,42 +21,6 @@ def _normalize_cover_list(raw_cover) -> list[str]:
     return []
 
 
-async def _query_music_meta_by_blog_ids(blog_ids: list[int], db: db_dependency) -> dict[int, Dict]:
-    if len(blog_ids) == 0:
-        return {}
-
-    stmt = (
-        select(
-            Blog_Music.blog_id,
-            Music.id.label("music_id"),
-            Music.name,
-            Music.cover,
-            Music.audio,
-            User.username,
-            User.avatar,
-        )
-        .join(Music, Blog_Music.music_id == Music.id)
-        .join(User, Music.rid == User.reks_id)
-        .where(Blog_Music.blog_id.in_(blog_ids), Music.type == MusicTypeEnum.song)
-        .order_by(Blog_Music.created_at.desc())
-    )
-    rows = (await db.execute(stmt)).all()
-
-    music_map: dict[int, Dict] = {}
-    for row in rows:
-        # 同一个博客若存在多条关联，仅取最新一条
-        if row.blog_id not in music_map:
-            music_map[row.blog_id] = {
-                "id": row.music_id,
-                "name": row.name,
-                "cover": row.cover,
-                "audio": row.audio,
-                "username": row.username,
-                "avatar": row.avatar,
-            }
-    return music_map
-
-
 # 获取博客
 async def get_blog(id: int, _type: str, db: db_dependency,
                    phone: Optional[str] = None) -> Dict | None:
@@ -72,12 +36,6 @@ async def get_blog(id: int, _type: str, db: db_dependency,
         stmt = (select(Blog, User.username, User.avatar).options(selectinload(Blog.tags))
                 .join(User, Blog.rid == User.reks_id).where(Blog.id == id, Blog.state == _type))
 
-    song = {}
-    try:
-        song = await _query_music_meta_by_blog_ids([id], db)
-    except Exception as e:
-        print(e)
-
     try:
         result = await db.execute(stmt)
         # 这玩意确实只返回一个，但是它的内容全都在这个对象里！不关scalar或者mappin的事
@@ -92,25 +50,15 @@ async def get_blog(id: int, _type: str, db: db_dependency,
         # 结果：<src.orm.model.Blog object at 0x0000028208F4A5F0>
         # blog.tags is a list of Tag objects; return tag names
         tags = [t.name for t in getattr(blog, 'tags', [])]
-        if song:
-            return {
-                "content": blog.content,
-                "title": blog.title,
-                "tags": tags,
-                "author": author,
-                "avatar": avatar,
-                "user_id": blog.rid,
-                "song": song.get(int(blog.id))
-            }
-        else:
-            return {
-                "content": blog.content,
-                "title": blog.title,
-                "tags": tags,
-                "author": author,
-                "avatar": avatar,
-                "user_id": blog.rid
-            }
+
+        return {
+            "content": blog.content,
+            "title": blog.title,
+            "tags": tags,
+            "author": author,
+            "avatar": avatar,
+            "user_id": blog.rid
+        }
     except Exception as e:
         print(e)
         return None
@@ -206,7 +154,6 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
             and_(Blog.rid == rid, Blog.state == state_)).order_by(Blog.updated_at.desc())
         blogs = (await db.execute(join_blog)).mappings().all()
         blog_ids = [int(blog.id) for blog in blogs]
-        music_map = await _query_music_meta_by_blog_ids(blog_ids, db)
         result = [
             {
                 "id": blog.id,
@@ -214,7 +161,6 @@ async def query_user_blogs(rid: int, state_: BlogStateEnum, db: db_dependency) -
                 "title": blog.title,
                 "type": int(blog.type),
                 "created_at": blog.created_at,
-                "music": music_map.get(int(blog.id)),
                 "author": blog.username,
                 "avatar": blog.avatar
             }
@@ -247,7 +193,6 @@ async def query_user_blogs_cursor(
         has_more = len(rows) > limit
         page_rows = rows[:limit]
         page_blog_ids = [int(row.id) for row in page_rows]
-        music_map = await _query_music_meta_by_blog_ids(page_blog_ids, db)
         items = [
             {
                 "id": row.id,
@@ -255,7 +200,6 @@ async def query_user_blogs_cursor(
                 "title": row.title,
                 "type": int(row.type),
                 "created_at": row.created_at,
-                "music": music_map.get(int(row.id)),
             }
             for row in page_rows
         ]
@@ -323,7 +267,6 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
         )
         rows = (await db.execute(stmt)).mappings().all()
         blog_ids = [int(row.id) for row in rows]
-        music_map = await _query_music_meta_by_blog_ids(blog_ids, db)
         return [
             {
                 "id": row.id,
@@ -332,7 +275,6 @@ async def query_hot_blog_by_likes(limit: int, db: db_dependency) -> list[Dict] |
                 "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
-                "music": music_map.get(int(row.id)),
                 "author": row.username,
                 "avatar": row.avatar,
                 "user_id": row.reks_id
@@ -390,7 +332,6 @@ async def query_hot_blog_cursor(
         has_more = len(rows) > limit
         page_rows = rows[:limit]
         blog_ids = [int(row.id) for row in page_rows]
-        music_map = await _query_music_meta_by_blog_ids(blog_ids, db)
 
         items = [
             {
@@ -401,7 +342,6 @@ async def query_hot_blog_cursor(
                 "type": int(row.type),
                 "created_at": row.created_at,
                 "like_count": int(row.like_count or 0),
-                "music": music_map.get(int(row.id)),
                 "avatar": row.avatar,
                 "user_id": row.reks_id
             }

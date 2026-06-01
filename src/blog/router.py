@@ -196,40 +196,40 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         raise HTTPException(405, "创建失败2")
 
 
-@blogRouter.post("/my-blog/new-mblog", summary="创建音乐博客")
-@limiter.limit("15/month")
-async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
-    if phone is False:
-        raise HTTPException(401, "当前登录状态已过期")
-    if data.music_id == 0:
-        raise HTTPException(404, "未上传正确的id")
-    print(data.music_id)
-    try:
-        rid = await query_user_rid(phone, db)
-        author_name = (
-            await db.execute(select(User.username).where(User.reks_id == rid))).scalar_one_or_none()
-        # XSS清洗 插入数据库
-        data.content = await clean_content(data.content)
-        # 调用 music 服务创建音乐博客（内部会创建 blog 并关联 music
-        ok = await create_music_blog(data, rid, data.music_id, db)
-        if ok:
-            await publish_event_to_followers(
-                author_id=rid,
-                event_type="following.music_blog.published",
-                payload={
-                    "authorId": rid,
-                    "authorName": author_name or f"用户{rid}",
-                    "title": data.title,
-                    "kind": "music-blog",
-                    "musicId": data.music_id,
-                },
-            )
-            return {"msg": True}
-        else:
-            raise HTTPException(400, "创建音乐博客失败")
-    except Exception as e:
-        print(e)
-        raise HTTPException(400, "创建音乐博客失败")
+# @blogRouter.post("/my-blog/new-mblog", summary="创建音乐博客")
+# @limiter.limit("15/month")
+# async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
+#     if phone is False:
+#         raise HTTPException(401, "当前登录状态已过期")
+#     if data.music_id == 0:
+#         raise HTTPException(404, "未上传正确的id")
+#     print(data.music_id)
+#     try:
+#         rid = await query_user_rid(phone, db)
+#         author_name = (
+#             await db.execute(select(User.username).where(User.reks_id == rid))).scalar_one_or_none()
+#         # XSS清洗 插入数据库
+#         data.content = await clean_content(data.content)
+#         # 调用 music 服务创建音乐博客（内部会创建 blog 并关联 music
+#         ok = await create_music_blog(data, rid, data.music_id, db)
+#         if ok:
+#             await publish_event_to_followers(
+#                 author_id=rid,
+#                 event_type="following.music_blog.published",
+#                 payload={
+#                     "authorId": rid,
+#                     "authorName": author_name or f"用户{rid}",
+#                     "title": data.title,
+#                     "kind": "music-blog",
+#                     "musicId": data.music_id,
+#                 },
+#             )
+#             return {"msg": True}
+#         else:
+#             raise HTTPException(400, "创建音乐博客失败")
+#     except Exception as e:
+#         print(e)
+#         raise HTTPException(400, "创建音乐博客失败")
 
 
 @blogRouter.post("/my-draft/new", summary="创建草稿")

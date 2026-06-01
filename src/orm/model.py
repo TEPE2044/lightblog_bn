@@ -333,31 +333,6 @@ class Gallery(Base):
     )
 
 
-class PlaylistMusic(Base):
-    __tablename__ = 'playlists_music'
-
-    # 指向歌单：级联删除
-    playlist_id: Mapped[int] = mapped_column(
-        ForeignKey('playlist.id', ondelete='CASCADE'),
-        primary_key=True
-    )
-
-    # 指向歌曲：普通外键，**不开级联**
-    # ← 不写 ondelete
-    music_id: Mapped[int] = mapped_column(
-        ForeignKey('music.id'),
-        primary_key=True
-    )
-
-    sort_order: Mapped[int] = mapped_column(default=0)
-    added_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )
-
-    playlist: Mapped["PlayList"] = relationship(back_populates='tracks')
-
-
 class Music(Base):
     __tablename__ = 'music'
 
@@ -421,44 +396,6 @@ class Music(Base):
     desc: Mapped[str | None] = mapped_column(String(30), nullable=True, comment="简介")
     favorites: Mapped[list["MusicFavorite"]] = relationship(
         "MusicFavorite", back_populates="music", cascade="all, delete-orphan"
-    )
-
-
-class PlayList(Base):
-    __tablename__ = 'playlist'
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="歌单id")
-    name: Mapped[str] = mapped_column(String(100), nullable=False, comment='歌单标题')
-    cover: Mapped[str | None] = mapped_column(String(500), comment='封面URL')
-    desc: Mapped[str | None] = mapped_column(String(500), comment='简介')
-    is_private: Mapped[bool] = mapped_column(default=False, comment='是否私密')
-    rid: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey(User.reks_id),
-        index=True,
-        nullable=False,
-        comment="用户通用id"
-    )
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now())
-    # 关系
-    creator: Mapped[User] = relationship(back_populates='playlists')
-    tracks: Mapped[list[PlaylistMusic]] = relationship(back_populates='playlist', cascade='all, delete-orphan')
-
-
-class Blog_Music(Base):
-    __tablename__ = "blogs_music"
-    blog_id: Mapped[int] = mapped_column(
-        ForeignKey("blogs.id", ondelete="CASCADE"),
-        primary_key=True
-    )
-    music_id: Mapped[int] = mapped_column(
-        ForeignKey("music.id", ondelete="RESTRICT"),
-        primary_key=True
-    )
-    sort_order: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
     )
 
 
