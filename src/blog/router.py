@@ -13,7 +13,7 @@ from src.blog.services import (
     query_daily_blog,
     query_hot_blog_by_likes,
     query_user_blogs_cursor,
-    query_hot_blog_cursor, soft_delete_blog, get_blog, _publish_draft,
+    query_hot_blog_cursor, soft_delete_blog, get_blog, publish_draft,
 )
 from src.database import db_dependency
 from src.deps import limiter
@@ -298,7 +298,7 @@ async def publish_draft(request: Request, blog_id: int, db: db_dependency,
     if rid is None:
         raise HTTPException(404, "用户不存在")
 
-    res = await _publish_draft(blog_id, db, rid)
+    res = await publish_draft(blog_id, db, rid)
     if res:
         return rback(200, "发布草稿成功")
     else:

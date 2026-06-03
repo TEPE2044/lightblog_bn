@@ -401,7 +401,7 @@ async def soft_delete_blog(db: db_dependency, blog_id: int, rid: int) -> bool:
         return False
 
 
-async def _publish_draft(blog_id: int, rid: int, db: db_dependency) -> bool:
+async def publish_draft(blog_id: int, rid: int, db: db_dependency) -> bool:
     stmt = update(Blog).values(state='publish').where(Blog.id == blog_id, Blog.rid == rid)
     try:
         res = await db.execute(stmt)
