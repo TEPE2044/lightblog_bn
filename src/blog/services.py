@@ -8,7 +8,7 @@ from src.blog.schemas import BlogData
 from src.database import db_dependency
 from src.orm import BlogStateEnum
 from src.orm import MusicTypeEnum
-from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, Blog_Music, Music, BlogLike
+from src.orm.model import Blog, blogs_tags, Tag, Gallery, User, BlogLike
 from sqlalchemy.dialects.postgresql import insert as prt  # 用 pg 的 upsert
 
 
