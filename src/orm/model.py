@@ -144,6 +144,9 @@ class User(Base):
     music_favorites: Mapped[list["MusicFavorite"]] = relationship(
         "MusicFavorite", back_populates="user"
     )
+    blogs: Mapped[list["Blog"]] = relationship(
+        "Blog", back_populates="user"
+    )
 
 
 # 关系表无需新建类 - Tag 和 Blog n*n
@@ -254,6 +257,7 @@ class Blog(Base):
 
     rid: Mapped[int] = mapped_column(
         Integer,
+        ForeignKey("users.reks_id", ondelete="CASCADE"),
         index=True,
         nullable=False,
         comment="用户通用id"
@@ -276,6 +280,9 @@ class Blog(Base):
     )
     favorites: Mapped[list["BlogFavorite"]] = relationship(
         "BlogFavorite", back_populates="blog", cascade="all, delete-orphan"
+    )
+    user: Mapped["User"] = relationship(
+        "User", back_populates="blogs"
     )
 
 

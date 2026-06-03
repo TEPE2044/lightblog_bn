@@ -1,6 +1,4 @@
 from sqlalchemy import delete, func, insert, select
-
-from src.blog.services import _query_music_meta_by_blog_ids
 from src.database import db_dependency
 from src.fav.schemas import FavoriteTargetEnum
 from src.orm import BlogStateEnum, MusicTypeEnum

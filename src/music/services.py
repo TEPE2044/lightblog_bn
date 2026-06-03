@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as prt
 from src.database import db_dependency
 from src.music.schemas import AudioBase
 from src.orm import MusicTypeEnum
-from src.orm.model import Music, User, Blog_Music
+from src.orm.model import Music, User
 from src.utils.obs_client import myBucket, myObs
 from src.blog.schemas import BlogData
 from src.blog.services import create_or_update_blog_core
