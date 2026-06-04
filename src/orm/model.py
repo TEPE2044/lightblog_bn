@@ -118,8 +118,6 @@ class User(Base):
         comment="用户个性签名"
     )
 
-    playlists: Mapped[list["PlayList"]] = relationship(back_populates='creator')
-
     contacts: Mapped[list["Contact"]] = relationship(
         "Contact", foreign_keys="Contact.user_id", back_populates="user"
     )
