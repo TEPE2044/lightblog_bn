@@ -32,3 +32,4 @@
 - POST /upload/img 图片上传接口
 - POST /upload/video 视频上传接口
 - ^POST /ai/generate 博客内容生成接口（AI助写）
+- POST /posts/editable 检测博客是否可编辑(ban/delete状态不可编辑，防止用户刻意修改已删除/封禁的博客) 
