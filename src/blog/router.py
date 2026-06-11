@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request, background, BackgroundTasks
 from sqlalchemy import select, func
 
-from src.blog.schemas import BlogData, CursorPageInput
+from src.blog.schemas import BlogData, CursorPageInput, PostData
 from src.blog.services import (
     upsert_blog,
     query_user_blogs,
@@ -27,6 +27,55 @@ from src.music.services import create_music_blog
 from src.subscribe.services import publish_event_to_followers
 
 blogRouter = APIRouter(prefix="/blog", tags=["博客模块"])
+
+
+async def create_posts(data: PostData, db: db_dependency, rid: int):
+    pass
+
+
+# 原则，只等让后端自己查用户信息，前端给的全都不可信
+@blogRouter.post("/new", summary="创建博客/草稿")
+@limiter.limit("25/week")
+async def create_new_post(request: Request, data: PostData, db: db_dependency, phone: auth_phone):
+    if phone is False:
+        raise HTTPException(401, "当前登录状态已过期")
+    # 查手机号对应的用户id
+    rid = await query_user_rid(phone, db)
+    # 数据清洗
+    data.content = await clean_content(data.content)
+    # 开始写入
+    is_insert = await create_posts(data, db, rid)
+    pass
+
+
+@blogRouter.post("/update", summary="更新博客/草稿")
+async def update_post():
+    pass
+
+
+@blogRouter.delete("/delete", summary="删除博客/草稿")
+async def delete_post():
+    pass
+
+
+@blogRouter.post("/posts", summary="获取博客/草稿（分页）")
+async def get_post():
+    pass
+
+
+@blogRouter.post("/posts/editable", summary="检测博客是否可编辑")
+async def get_posts_editable():
+    pass
+
+
+@blogRouter.get("/{blog_id}", summary="获取博客/草稿详情")
+async def get_post_detail():
+    pass
+
+
+@blogRouter.get("/user/{id}", summary="获取用户的博客/草稿列表(分页)")
+async def get_user_post():
+    pass
 
 
 # 博客CRUD
@@ -177,6 +226,7 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
         # XSS清洗 插入数据库
         data.content = await clean_content(data.content)
         is_insert = await upsert_blog(data, rid, 0, 1, db)
+        # 推送和插入放在一起，而不是在接口层
         if is_insert is True:
             await publish_event_to_followers(
                 author_id=rid,
@@ -194,42 +244,6 @@ async def upload_blog(request: Request, data: BlogData, db: db_dependency, phone
     except Exception as e:
         print(e)
         raise HTTPException(405, "创建失败2")
-
-
-# @blogRouter.post("/my-blog/new-mblog", summary="创建音乐博客")
-# @limiter.limit("15/month")
-# async def upload_mblog(request: Request, data: BlogData, db: db_dependency, phone: auth_phone):
-#     if phone is False:
-#         raise HTTPException(401, "当前登录状态已过期")
-#     if data.music_id == 0:
-#         raise HTTPException(404, "未上传正确的id")
-#     print(data.music_id)
-#     try:
-#         rid = await query_user_rid(phone, db)
-#         author_name = (
-#             await db.execute(select(User.username).where(User.reks_id == rid))).scalar_one_or_none()
-#         # XSS清洗 插入数据库
-#         data.content = await clean_content(data.content)
-#         # 调用 music 服务创建音乐博客（内部会创建 blog 并关联 music
-#         ok = await create_music_blog(data, rid, data.music_id, db)
-#         if ok:
-#             await publish_event_to_followers(
-#                 author_id=rid,
-#                 event_type="following.music_blog.published",
-#                 payload={
-#                     "authorId": rid,
-#                     "authorName": author_name or f"用户{rid}",
-#                     "title": data.title,
-#                     "kind": "music-blog",
-#                     "musicId": data.music_id,
-#                 },
-#             )
-#             return {"msg": True}
-#         else:
-#             raise HTTPException(400, "创建音乐博客失败")
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(400, "创建音乐博客失败")
 
 
 @blogRouter.post("/my-draft/new", summary="创建草稿")

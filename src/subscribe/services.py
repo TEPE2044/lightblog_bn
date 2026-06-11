@@ -153,7 +153,7 @@ async def publish_event(receiver_id: int, event_type: str, payload: dict | str) 
         return None
 
 
-async def publish_event_to_followers(author_id: int, event_type: str, payload: dict | str) -> int:
+async def publish_event_to_followers(author_id: int,  event_type: str, payload: dict | str) -> int:
     """向 author_id 的全部关注者推送事件，返回推送成功条数。"""
     async with (SessionLocal() as db):
         try:

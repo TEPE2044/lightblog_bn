@@ -4,6 +4,7 @@ from src.config import settings
 from sqlalchemy.pool import NullPool
 
 import os
+# engine:该对象充当连接到特定数据库的中心来源，同时提供工厂以及称为连接池的存储空间来管理这些数据库连接。引擎通常是一个全局对象，为特定的数据库服务器仅创建一次，并使用描述其如何连接到数据库主机或后端的 URL 字符串进行配置。
 
 APP_ENV = str(os.environ.get('APP_ENV'))
 if APP_ENV == 'prod':
